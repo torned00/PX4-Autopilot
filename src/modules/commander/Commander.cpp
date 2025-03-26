@@ -352,6 +352,11 @@ int Commander::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
+	if (!strcmp(argv[0], "position")) {
+		PX4_INFO("You called print position. Contrats.");
+		return 0;
+	}
+
 	if (!strcmp(argv[0], "transition")) {
 		uORB::Subscription vehicle_status_sub{ORB_ID(vehicle_status)};
 		vehicle_status_s vehicle_status{};
