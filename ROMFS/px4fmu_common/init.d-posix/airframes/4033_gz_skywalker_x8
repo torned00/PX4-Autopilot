@@ -41,9 +41,9 @@ param set-default CA_ROTOR0_AZ 0
 param set-default CA_ROTOR0_PX 0.2
 
 # Only one motor (the tail rotor)
-param set-default SIM_GZ_EC_FUNC5 101
-param set-default SIM_GZ_EC_MIN5 0
-param set-default SIM_GZ_EC_MAX5 3500
+param set-default SIM_GZ_EC_FUNC1 101
+param set-default SIM_GZ_EC_MIN1 0
+param set-default SIM_GZ_EC_MAX1 1000
 
 param set-default SIM_GZ_SV_FUNC1 201
 param set-default SIM_GZ_SV_FUNC2 202

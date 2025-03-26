@@ -353,7 +353,15 @@ int Commander::custom_command(int argc, char *argv[])
 	}
 
 	if (!strcmp(argv[0], "position")) {
-		PX4_INFO("You called print position. Contrats.");
+		uORB::Subscription home_position_sub{ORB_ID(home_position)};
+		uORB::Subscription vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
+		home_position_s home_position{};
+		vehicle_global_position_s vehicle_global_position{};
+		home_position_sub.copy(&home_position);
+		vehicle_global_position_sub.copy(&vehicle_global_position);
+		PX4_INFO("Home position: %f, %f, %f", home_position.lat, home_position.lon, (double)home_position.alt);
+		PX4_INFO("Vehicle global position: %f, %f, %f", vehicle_global_position.lat, vehicle_global_position.lon, (double)vehicle_global_position.alt);
+
 		return 0;
 	}
 
