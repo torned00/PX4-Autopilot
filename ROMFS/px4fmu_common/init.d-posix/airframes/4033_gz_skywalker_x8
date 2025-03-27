@@ -10,11 +10,6 @@ PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=skywalker_x8}
 
-param set-default LPE_LON 10.395948
-param set-default LPE_LAT 63.409023
-#param set-default SIM_GZ_HOME_LAT 63.409023
-#param set-default SIM_GZ_HOME_LON 10.395948
-#param set-default SIM_GZ_HOME_ALT 10
 
 param set-default SIM_GZ_EN 1
 

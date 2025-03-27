@@ -355,12 +355,23 @@ int Commander::custom_command(int argc, char *argv[])
 	if (!strcmp(argv[0], "position")) {
 		uORB::Subscription home_position_sub{ORB_ID(home_position)};
 		uORB::Subscription vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
+		uORB::Subscription vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
+		uORB::Subscription vehicle_local_position_setpoint_sub{ORB_ID(vehicle_local_position_setpoint)};
+
 		home_position_s home_position{};
 		vehicle_global_position_s vehicle_global_position{};
+		vehicle_local_position_s vehicle_local_position{};
+		vehicle_local_position_setpoint_s vehicle_local_position_setpoint{};
+
 		home_position_sub.copy(&home_position);
 		vehicle_global_position_sub.copy(&vehicle_global_position);
-		PX4_INFO("Home position: %f, %f, %f", home_position.lat, home_position.lon, (double)home_position.alt);
+		vehicle_local_position_sub.copy(&vehicle_local_position);
+		vehicle_local_position_setpoint_sub.copy(&vehicle_local_position_setpoint);
+
+		PX4_INFO("Home position: %f, %f, %f, %f, %f, %f", (double)home_position.x, (double)home_position.y, (double)home_position.z, (double)home_position.lat, (double)home_position.lon, (double)home_position.alt);
 		PX4_INFO("Vehicle global position: %f, %f, %f", vehicle_global_position.lat, vehicle_global_position.lon, (double)vehicle_global_position.alt);
+		PX4_INFO("Vehicle local position: %f, %f, %f", (double)vehicle_local_position.x, (double)vehicle_local_position.y, (double)vehicle_local_position.z);
+		PX4_INFO("Vehicle local position setpoint: %f, %f, %f", (double)vehicle_local_position_setpoint.x, (double)vehicle_local_position_setpoint.y, (double)vehicle_local_position_setpoint.z);
 
 		return 0;
 	}
