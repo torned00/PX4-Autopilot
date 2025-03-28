@@ -1062,7 +1062,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 	case vehicle_command_s::VEHICLE_CMD_NAV_PRECLAND_ON_TARGET: {
 			/* switch to PLOT which ends the mission */
 			if (_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT, getSourceFromCommand(cmd))) {
-				mavlink_log_info(&_mavlink_log_pub, "Returning to launch\t");
+				mavlink_log_info(&_mavlink_log_pub, "Precision Landing on Target\t");
 				events::send(events::ID("commander_plot"), events::Log::Info, "Precision Landing on Target");
 				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_ACCEPTED;
 
