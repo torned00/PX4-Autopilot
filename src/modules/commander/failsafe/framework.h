@@ -60,6 +60,7 @@ public:
 		FallbackStab,
 
 		Hold,
+		PLOT,
 		RTL,
 		Land,
 		Descend,
