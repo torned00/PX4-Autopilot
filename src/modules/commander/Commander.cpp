@@ -852,6 +852,10 @@ Commander::handle_command(const vehicle_command_s &cmd)
 							desired_nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION;
 							break;
 
+						case PX4_CUSTOM_SUB_MODE_AUTO_PLOT:
+							desired_nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT;
+							break;
+
 						case PX4_CUSTOM_SUB_MODE_AUTO_RTL:
 							desired_nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_RTL;
 							break;
@@ -1051,6 +1055,20 @@ Commander::handle_command(const vehicle_command_s &cmd)
 			} else {
 				// COM_HOME_EN disabled
 				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_DENIED;
+			}
+		}
+		break;
+
+	case vehicle_command_s::VEHICLE_CMD_NAV_PRECLAND_ON_TARGET: {
+			/* switch to PLOT which ends the mission */
+			if (_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT, getSourceFromCommand(cmd))) {
+				mavlink_log_info(&_mavlink_log_pub, "Returning to launch\t");
+				events::send(events::ID("commander_plot"), events::Log::Info, "Precision Landing on Target");
+				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_ACCEPTED;
+
+			} else {
+				printRejectMode(vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT);
+				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED;
 			}
 		}
 		break;
@@ -1507,7 +1525,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 	case vehicle_command_s::VEHICLE_CMD_START_RX_PAIR:
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_1:
-	case vehicle_command_s::VEHICLE_CMD_CUSTOM_2:
+	case vehicle_command_s::VEHICLE_CMD_NAV_PRECLAND_ON_TARGET:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL_QUAT:
@@ -3047,7 +3065,7 @@ The commander module contains the state machine for mode switching and failsafe 
 	PRINT_MODULE_USAGE_COMMAND("land");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("transition", "VTOL transition");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("mode", "Change flight mode");
-	PRINT_MODULE_USAGE_ARG("manual|acro|offboard|stabilized|altctl|posctl|position:slow|auto:mission|auto:loiter|auto:rtl|auto:takeoff|auto:land|auto:precland|ext1",
+	PRINT_MODULE_USAGE_ARG("manual|acro|offboard|stabilized|altctl|posctl|position:slow|auto:mission|auto:loiter|auto:plot|auto:rtl|auto:takeoff|auto:land|auto:precland|ext1",
 			"Flight mode", false);
 	PRINT_MODULE_USAGE_COMMAND("pair");
 	PRINT_MODULE_USAGE_COMMAND("lockdown");
