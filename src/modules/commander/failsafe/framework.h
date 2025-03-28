@@ -104,6 +104,8 @@ public:
 
 		case Action::Hold: return "Hold";
 
+		case Action::PLOT: return "PLOT";
+
 		case Action::RTL: return "RTL";
 
 		case Action::Land: return "Land";
