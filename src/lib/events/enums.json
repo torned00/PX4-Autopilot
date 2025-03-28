@@ -72,78 +72,78 @@
                             "description": "Loiter"
                         },
                         "32": {
-                            "name": "plot",
-                            "description": "PLOT"
-                        },
-                        "64": {
                             "name": "rtl",
                             "description": "RTL"
                         },
-                        "2048": {
+                        "128": {
+				"name": "plot",
+				"description": "PLOT"
+			    },
+                        "1024": {
                             "name": "acro",
                             "description": "Acro"
                         },
-                        "32768": {
+                        "16384": {
                             "name": "offboard",
                             "description": "Offboard"
                         },
-                        "65536": {
+                        "32768": {
                             "name": "stab",
                             "description": "Stabilized"
                         },
-                        "262144": {
+                        "131072": {
                             "name": "takeoff",
                             "description": "Takeoff"
                         },
-                        "524288": {
+                        "262144": {
                             "name": "land",
                             "description": "Land"
                         },
-                        "1048576": {
+                        "524288": {
                             "name": "follow_target",
                             "description": "Follow Target"
                         },
-                        "2097152": {
+                        "1048576": {
                             "name": "precland",
                             "description": "Precision Land"
                         },
-                        "4194304": {
+                        "2097152": {
                             "name": "orbit",
                             "description": "Orbit"
                         },
-                        "8388608": {
+                        "4194304": {
                             "name": "vtol_takeoff",
                             "description": "VTOL Takeoff"
                         },
-                        "16777216": {
+                        "8388608": {
                             "name": "external1",
                             "description": "External 1"
                         },
-                        "33554432": {
+                        "16777216": {
                             "name": "external2",
                             "description": "External 2"
                         },
-                        "67108864": {
+                        "33554432": {
                             "name": "external3",
                             "description": "External 3"
                         },
-                        "134217728": {
+                        "67108864": {
                             "name": "external4",
                             "description": "External 4"
                         },
-                        "268435456": {
+                        "134217728": {
                             "name": "external5",
                             "description": "External 5"
                         },
-                        "536870912": {
+                        "268435456": {
                             "name": "external6",
                             "description": "External 6"
                         },
-                        "1073741824": {
+                        "536870912": {
                             "name": "external7",
                             "description": "External 7"
                         },
-                        "2147483648": {
+                        "1073741824": {
                             "name": "external8",
                             "description": "External 8"
                         }
@@ -421,29 +421,29 @@
                             "description": "Hold"
                         },
                         "6": {
-                            "name": "plot",
-                            "description": "PLOT"
-                        },
-                        "7": {
                             "name": "rtl",
                             "description": "RTL"
                         },
-                        "8": {
+                        "7": {
                             "name": "land",
                             "description": "Land"
                         },
-                        "9": {
+                        "8": {
                             "name": "descend",
                             "description": "Descend"
                         },
-                        "10": {
+                        "9": {
                             "name": "disarm",
                             "description": "disarm"
                         },
-                        "11": {
+                        "10": {
                             "name": "terminate",
                             "description": "terminate"
-                        }
+                        },
+                        "11": {
+				"name": "plot",
+				"description": "PLOT"
+			    }
                     }
                 },
                 "arm_disarm_reason_t": {
@@ -537,85 +537,85 @@
                             "description": "Hold"
                         },
                         "5": {
-                            "name": "auto_plot",
-                            "description": "PLOT"
-                        },
-                        "6": {
                             "name": "auto_rtl",
                             "description": "RTL"
                         },
-                        "7": {
+                        "6": {
                             "name": "acro",
                             "description": "Acro"
                         },
-                        "8": {
+                        "7": {
                             "name": "offboard",
                             "description": "Offboard"
                         },
-                        "9": {
+                        "8": {
                             "name": "stab",
                             "description": "Stabilized"
                         },
-                        "10": {
+                        "9": {
                             "name": "position_slow",
                             "description": "Position Slow"
                         },
-                        "11": {
+                        "10": {
                             "name": "auto_takeoff",
                             "description": "Takeoff"
                         },
-                        "12": {
+                        "11": {
                             "name": "auto_land",
                             "description": "Land"
                         },
-                        "13": {
+                        "12": {
                             "name": "auto_follow_target",
                             "description": "Follow Target"
                         },
-                        "14": {
+                        "13": {
                             "name": "auto_precland",
                             "description": "Precision Landing"
                         },
-                        "15": {
+                        "14": {
                             "name": "orbit",
                             "description": "Orbit"
                         },
-                        "16": {
+                        "15": {
                             "name": "auto_vtol_takeoff",
                             "description": "Vtol Takeoff"
                         },
-                        "17": {
+                        "16": {
                             "name": "external1",
                             "description": "External 1"
                         },
-                        "18": {
+                        "17": {
                             "name": "external2",
                             "description": "External 2"
                         },
-                        "19": {
+                        "18": {
                             "name": "external3",
                             "description": "External 3"
                         },
-                        "20": {
+                        "19": {
                             "name": "external4",
                             "description": "External 4"
                         },
-                        "21": {
+                        "20": {
                             "name": "external5",
                             "description": "External 5"
                         },
-                        "22": {
+                        "21": {
                             "name": "external6",
                             "description": "External 6"
                         },
-                        "23": {
+                        "22": {
                             "name": "external7",
                             "description": "External 7"
                         },
-                        "24": {
+                        "23": {
                             "name": "external8",
                             "description": "External 8"
                         },
+                        "24": {
+				"name": "auto_plot",
+				"description": "PLOT"
+			    },
                         "255": {
                             "name": "unknown",
                             "description": "[Unknown]"
@@ -761,8 +761,7 @@
                     "27": [251920384],
                     "28": [268697600],
                     "29": [285474816],
-                    "30": [302252032],
-                    "31": [319029248]
+                    "30": [302252032]
                 }
             },
             "supported_protocols": [ "health_and_arming_check" ]

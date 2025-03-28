@@ -50,9 +50,9 @@ static inline uint32_t getValidNavStates()
 	       (1u << vehicle_status_s::NAVIGATION_STATE_POSCTL) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER) |
-	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_RTL) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_POSITION_SLOW) |
+	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_ACRO) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_TERMINATION) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_OFFBOARD) |
@@ -64,7 +64,7 @@ static inline uint32_t getValidNavStates()
 	       (1u << vehicle_status_s::NAVIGATION_STATE_ORBIT) |
 	       (1u << vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF);
 
-	static_assert(vehicle_status_s::NAVIGATION_STATE_MAX  == 32, "update valid nav states");
+	static_assert(vehicle_status_s::NAVIGATION_STATE_MAX  == 31, "update valid nav states");
 }
 
 const char *const nav_state_names[vehicle_status_s::NAVIGATION_STATE_MAX] = {
@@ -73,10 +73,9 @@ const char *const nav_state_names[vehicle_status_s::NAVIGATION_STATE_MAX] = {
 	"Position",
 	"Mission",
 	"Hold",
-	"PrecLand on Target",
 	"Return",
 	"Position Slow",
-	"7: unallocated",
+	"Precision Landing on Target",
 	"8: unallocated",
 	"9: unallocated",
 	"Acro",

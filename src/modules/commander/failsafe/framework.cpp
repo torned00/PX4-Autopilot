@@ -694,6 +694,7 @@ uint8_t FailsafeBase::modeFromAction(const Action &action, uint8_t user_intended
 	case Action::Descend: return vehicle_status_s::NAVIGATION_STATE_DESCEND;
 
 	case Action::Terminate:
+
 	case Action::Disarm:
 	case Action::None:
 	case Action::Warn:

@@ -60,12 +60,12 @@ public:
 		FallbackStab,
 
 		Hold,
-		PLOT,
 		RTL,
 		Land,
 		Descend,
 		Disarm,
 		Terminate,
+		PLOT,
 
 		Count
 	};
@@ -104,8 +104,6 @@ public:
 
 		case Action::Hold: return "Hold";
 
-		case Action::PLOT: return "PLOT";
-
 		case Action::RTL: return "RTL";
 
 		case Action::Land: return "Land";
@@ -115,6 +113,8 @@ public:
 		case Action::Disarm: return "Disarm";
 
 		case Action::Terminate: return "Terminate";
+
+		case Action::PLOT: return "PLOT";
 
 		case Action::Count:
 		default: return "(invalid)";
