@@ -59,11 +59,11 @@ enum PX4_CUSTOM_SUB_MODE_AUTO {
 	PX4_CUSTOM_SUB_MODE_AUTO_TAKEOFF,
 	PX4_CUSTOM_SUB_MODE_AUTO_LOITER,
 	PX4_CUSTOM_SUB_MODE_AUTO_MISSION,
-	PX4_CUSTOM_SUB_MODE_AUTO_PLOT,
 	PX4_CUSTOM_SUB_MODE_AUTO_RTL,
 	PX4_CUSTOM_SUB_MODE_AUTO_LAND,
 	PX4_CUSTOM_SUB_MODE_AUTO_RESERVED_DO_NOT_USE, // was PX4_CUSTOM_SUB_MODE_AUTO_RTGS, deleted 2020-03-05
 	PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_TARGET,
+	PX4_CUSTOM_SUB_MODE_AUTO_PLOT,
 	PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND,
 	PX4_CUSTOM_SUB_MODE_AUTO_VTOL_TAKEOFF,
 	PX4_CUSTOM_SUB_MODE_EXTERNAL1,
@@ -137,11 +137,6 @@ static inline union px4_custom_mode get_px4_custom_mode(uint8_t nav_state)
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_RTL;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT:
-		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
-		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_PLOT;
-		break;
-
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_ACRO;
 		break;
@@ -176,6 +171,11 @@ static inline union px4_custom_mode get_px4_custom_mode(uint8_t nav_state)
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_TARGET;
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT:
+		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
+		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_PLOT;
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
