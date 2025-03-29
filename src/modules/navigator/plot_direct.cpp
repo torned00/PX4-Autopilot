@@ -88,7 +88,7 @@ void PlotDirect::on_activation()
 
 	mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: start return at %d m (%d m above destination)\t",
 			 (int)ceilf(_plot_alt), (int)ceilf(_plot_alt - _destination.alt));
-	events::send<int32_t, int32_t>(events::ID("vrtl_return_at"), events::Log::Info,
+	events::send<int32_t, int32_t>(events::ID("vplot_return_at"), events::Log::Info,
 				       "PLOT: start return at {1m_v} ({2m_v} above destination)",
 				       (int32_t)ceilf(_plot_alt), (int32_t)ceilf(_plot_alt - _destination.alt));
 }
