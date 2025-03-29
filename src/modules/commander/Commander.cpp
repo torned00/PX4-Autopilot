@@ -1059,20 +1059,6 @@ Commander::handle_command(const vehicle_command_s &cmd)
 		}
 		break;
 
-	case vehicle_command_s::VEHICLE_CMD_NAV_PRECLAND_ON_TARGET: {
-			/* switch to PLOT which ends the mission */
-			if (_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT, getSourceFromCommand(cmd))) {
-				mavlink_log_info(&_mavlink_log_pub, "Precision Landing on Target\t");
-				events::send(events::ID("commander_plot"), events::Log::Info, "Precision Landing on Target");
-				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_ACCEPTED;
-
-			} else {
-				printRejectMode(vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT);
-				cmd_result = vehicle_command_ack_s::VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED;
-			}
-		}
-		break;
-
 	case vehicle_command_s::VEHICLE_CMD_NAV_RETURN_TO_LAUNCH: {
 			/* switch to RTL which ends the mission */
 			if (_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_AUTO_RTL, getSourceFromCommand(cmd))) {
@@ -1525,6 +1511,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 	case vehicle_command_s::VEHICLE_CMD_START_RX_PAIR:
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_0:
 	case vehicle_command_s::VEHICLE_CMD_CUSTOM_1:
+	case vehicle_command_s::VEHICLE_CMD_CUSTOM_2:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE:
 	case vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL_QUAT:
