@@ -95,6 +95,7 @@ using namespace time_literals;
 
 /**
  * Number of navigation modes that need on_active/on_inactive calls
+ * Prev. 8, but incremented to include PLOT
  */
 #define NAVIGATOR_MODE_ARRAY_SIZE 9
 
