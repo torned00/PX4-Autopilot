@@ -64,10 +64,6 @@ PlotDirect::PlotDirect(Navigator *navigator) :
 
 void PlotDirect::on_inactivation()
 {
-	if (_navigator->get_precland()->is_activated()) {
-		_navigator->get_precland()->on_inactivation();
-	}
-
 	_plot_state = PLOTState::IDLE;
 }
 
@@ -105,19 +101,6 @@ void PlotDirect::on_active()
 		set_plot_item();
 	}
 
-	if (_plot_state != PLOTState::IDLE && _plot_state != PLOTState::LAND) {
-		//check for terrain collision and update altitude if needed
-		// note: it may trigger multiple times during a PLOT, as every time the altitude set is reset
-		updateAltToAvoidTerrainCollisionAndRepublishTriplet(_mission_item);
-	}
-
-	if (_plot_state == PLOTState::LAND && _mission_item.land_precision > 0) {
-		// Need to update the position and type on the current setpoint triplet.
-		_navigator->get_precland()->on_active();
-
-	} else if (_navigator->get_precland()->is_activated()) {
-		_navigator->get_precland()->on_inactivation();
-	}
 }
 
 void PlotDirect::on_inactive()
@@ -170,9 +153,6 @@ void PlotDirect::_updatePlotState()
 	PLOTState new_state{PLOTState::IDLE};
 
 	switch (_plot_state) {
-	case PLOTState::CLIMBING:
-		new_state = PLOTState::MOVE_TO_LOITER;
-		break;
 
 	case PLOTState::MOVE_TO_LOITER:
 		if (!is_multicopter || wait_at_plot_descend_alt) {
@@ -181,6 +161,7 @@ void PlotDirect::_updatePlotState()
 		} else {
 			new_state = PLOTState::LAND;
 		}
+		new_state = PLOTState::MOVE_TO_LAND;
 
 		break;
 
@@ -189,27 +170,14 @@ void PlotDirect::_updatePlotState()
 		break;
 
 	case PLOTState::LOITER_HOLD:
-		if (_vehicle_status_sub.get().is_vtol
-		    && _vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
-			new_state = PLOTState::MOVE_TO_LAND;
-
-		} else {
-			new_state = PLOTState::MOVE_TO_LAND_HOVER;
-		}
+		new_state = PLOTState::MOVE_TO_LAND;
 
 		break;
 
 	case PLOTState::MOVE_TO_LAND:
-		new_state = PLOTState::TRANSITION_TO_MC;
-		break;
-
-	case PLOTState::TRANSITION_TO_MC:
-		new_state = PLOTState::MOVE_TO_LAND_HOVER;
-		break;
-
-	case PLOTState::MOVE_TO_LAND_HOVER:
 		new_state = PLOTState::LAND;
 		break;
+
 
 	case PLOTState::LAND:
 		new_state = PLOTState::IDLE;
@@ -238,17 +206,6 @@ void PlotDirect::set_plot_item()
 	float altitude_acceptance_radius = static_cast<float>(NAN);
 
 	switch (_plot_state) {
-	case PLOTState::CLIMBING: {
-			PositionYawSetpoint pos_yaw_sp {
-				.lat = _global_pos_sub.get().lat,
-				.lon = _global_pos_sub.get().lon,
-				.alt = _plot_alt,
-				.yaw = _param_wv_en.get() ? NAN : _navigator->get_local_position()->heading,
-			};
-			setLoiterToAltMissionItem(_mission_item, pos_yaw_sp, _navigator->get_loiter_radius());
-
-			break;
-		}
 
 	case PLOTState::MOVE_TO_LOITER: {
 			PositionYawSetpoint pos_yaw_sp {
@@ -345,34 +302,12 @@ void PlotDirect::set_plot_item()
 			break;
 		}
 
-	case PLOTState::TRANSITION_TO_MC: {
-			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC);
-
-			break;
-		}
-
-	case PLOTState::MOVE_TO_LAND_HOVER: {
-			PositionYawSetpoint pos_yaw_sp{_destination};
-			pos_yaw_sp.alt = loiter_altitude;
-			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
-
-			altitude_acceptance_radius = FLT_MAX;
-			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
-			_navigator->reset_position_setpoint(pos_sp_triplet->previous);
-
-			break;
-		}
 
 	case PLOTState::LAND: {
 			PositionYawSetpoint pos_yaw_sp{_destination};
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 			setLandMissionItem(_mission_item, pos_yaw_sp);
 
-			_mission_item.land_precision = _param_plot_pld_md.get();
-
-			if (_mission_item.land_precision > 0) {
-				startPrecLand(_mission_item.land_precision);
-			}
 
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: land at destination\t");
 			events::send(events::ID("plot_land_at_destination"), events::Log::Info, "PLOT: land at destination");
@@ -412,16 +347,7 @@ PlotDirect::PLOTState PlotDirect::getActivationLandState()
 
 	PLOTState land_state;
 
-	if (_land_detected_sub.get().landed) {
-		// For safety reasons don't go into PLOT if landed.
-		land_state = PLOTState::IDLE;
-
-	} else if ((_global_pos_sub.get().alt < _plot_alt) || _enforce_plot_alt) {
-		land_state = PLOTState::CLIMBING;
-
-	} else {
-		land_state = PLOTState::MOVE_TO_LOITER;
-	}
+	land_state = PLOTState::MOVE_TO_LOITER;
 
 	return land_state;
 }
@@ -452,12 +378,6 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 
 		// Sum up time estimate for various segments of the landing procedure
 		switch (start_state_for_estimate) {
-		case PLOTState::CLIMBING: {
-				// Climb segment is only relevant if the drone is below return altitude
-				if ((_global_pos_sub.get().alt < _plot_alt) || _enforce_plot_alt) {
-					_plot_time_estimator.addVertDistance(_plot_alt - _global_pos_sub.get().alt);
-				}
-			}
 
 		// FALLTHROUGH
 		case PLOTState::MOVE_TO_LOITER: {
@@ -502,27 +422,6 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 
 		// FALLTHROUGH
 		case PLOTState::MOVE_TO_LAND:
-		case PLOTState::TRANSITION_TO_MC:
-		case PLOTState::MOVE_TO_LAND_HOVER: {
-				// Add cruise segment to home
-				float move_to_land_dist{0.f};
-				matrix::Vector2f direction{};
-
-				if (start_state_for_estimate >= PLOTState::MOVE_TO_LAND) {
-					move_to_land_dist = get_distance_to_next_waypoint(
-								    _global_pos_sub.get().lat, _global_pos_sub.get().lon, _destination.lat, _destination.lon);
-					get_vector_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, _destination.lat, _destination.lon,
-								    &direction(0), &direction(1));
-
-				} else {
-					move_to_land_dist = get_distance_to_next_waypoint(
-								    land_approach.lat, land_approach.lon, _destination.lat, _destination.lon);
-					get_vector_to_next_waypoint(land_approach.lat, land_approach.lon, _destination.lat, _destination.lon, &direction(0),
-								    &direction(1));
-				}
-
-				_plot_time_estimator.addDistance(move_to_land_dist, direction, 0.f);
-			}
 
 		// FALLTHROUGH
 		case PLOTState::LAND: {

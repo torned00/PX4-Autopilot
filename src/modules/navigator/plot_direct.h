@@ -119,13 +119,10 @@ private:
 	 *
 	 */
 	enum class PLOTState {
-		CLIMBING,
 		MOVE_TO_LOITER,
 		LOITER_DOWN,
 		LOITER_HOLD,
 		MOVE_TO_LAND,
-		TRANSITION_TO_MC,
-		MOVE_TO_LAND_HOVER,
 		LAND,
 		IDLE
 	} _plot_state{PLOTState::IDLE}; /*< Current state in the state machine.*/

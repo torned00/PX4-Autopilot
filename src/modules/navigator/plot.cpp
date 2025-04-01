@@ -208,11 +208,6 @@ void PLOT::findPlotDestination(PositionYawSetpoint &plot_position, float &plot_a
 	plot_position.lat = _home_pos_sub.get().lat;
 	plot_position.lon = _home_pos_sub.get().lon;
 	plot_position.yaw = _home_pos_sub.get().yaw;
-	// get distance to home position
-	float home_dist{get_distance_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, plot_position.lat, plot_position.lon)};
-	float min_dist;
-
-	min_dist = home_dist;
 
 	if (_param_plot_cone_half_angle_deg.get() > 0
 	    && _vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
