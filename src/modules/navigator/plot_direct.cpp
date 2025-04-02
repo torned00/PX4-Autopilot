@@ -146,40 +146,19 @@ void PlotDirect::setPlotPosition(PositionYawSetpoint plot_position, loiter_point
 
 void PlotDirect::_updatePlotState()
 {
-	// PLOT_LAND_DELAY > 0 -> wait seconds, < 0 wait indefinitely
-	const bool wait_at_plot_descend_alt = fabsf(_param_plot_land_delay.get()) > FLT_EPSILON;
-	const bool is_multicopter = (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
-
 	PLOTState new_state{PLOTState::IDLE};
 
 	switch (_plot_state) {
 
-	case PLOTState::MOVE_TO_LOITER:
-		if (!is_multicopter || wait_at_plot_descend_alt) {
-			new_state = PLOTState::LOITER_DOWN;
-
-		} else {
-			new_state = PLOTState::LAND;
-		}
+	case PLOTState::MOVE_TO_TARGET:
 		new_state = PLOTState::MOVE_TO_LAND;
-
-		break;
-
-	case PLOTState::LOITER_DOWN:
-		new_state = PLOTState::LOITER_HOLD;
-		break;
-
-	case PLOTState::LOITER_HOLD:
-		new_state = PLOTState::MOVE_TO_LAND;
-
 		break;
 
 	case PLOTState::MOVE_TO_LAND:
-		new_state = PLOTState::LAND;
+		new_state = PLOTState::HIT_TARGET;
 		break;
 
-
-	case PLOTState::LAND:
+	case PLOTState::HIT_TARGET:
 		new_state = PLOTState::IDLE;
 		break;
 
@@ -199,6 +178,7 @@ void PlotDirect::set_plot_item()
 
 	const float destination_dist = get_distance_to_next_waypoint(_destination.lat, _destination.lon,
 				       _global_pos_sub.get().lat, _global_pos_sub.get().lon);
+
 	const float loiter_altitude = math::min(_land_approach.height_m, _plot_alt);
 
 	const bool is_close_to_destination = destination_dist < _param_plot_min_dist.get();
@@ -207,7 +187,7 @@ void PlotDirect::set_plot_item()
 
 	switch (_plot_state) {
 
-	case PLOTState::MOVE_TO_LOITER: {
+	case PLOTState::MOVE_TO_TARGET: {
 			PositionYawSetpoint pos_yaw_sp {
 				.lat = _land_approach.lat,
 				.lon = _land_approach.lon,
@@ -229,56 +209,6 @@ void PlotDirect::set_plot_item()
 			break;
 		}
 
-	case PLOTState::LOITER_DOWN: {
-			PositionYawSetpoint pos_yaw_sp{
-				.lat = _land_approach.lat,
-				.lon = _land_approach.lon,
-				.alt = loiter_altitude,
-				.yaw = !_param_wv_en.get() ? _destination.yaw : NAN, // set final yaw if weather vane is disabled
-			};
-
-			setLoiterToAltMissionItem(_mission_item, pos_yaw_sp, _land_approach.loiter_radius_m);
-
-			pos_sp_triplet->next.valid = true;
-			pos_sp_triplet->next.lat = _destination.lat;
-			pos_sp_triplet->next.lon = _destination.lon;
-			pos_sp_triplet->next.type = position_setpoint_s::SETPOINT_TYPE_LAND;
-
-			if (_force_heading) {
-				_mission_item.force_heading = true;
-			}
-
-			// Disable previous setpoint to prevent drift.
-			pos_sp_triplet->previous.valid = false;
-
-			break;
-		}
-
-	case PLOTState::LOITER_HOLD: {
-			PositionYawSetpoint pos_yaw_sp {
-				.lat = _land_approach.lat,
-				.lon = _land_approach.lon,
-				.alt = loiter_altitude,
-				.yaw = !_param_wv_en.get() ? _destination.yaw : NAN, // set final yaw if weather vane is disabled
-			};
-
-			setLoiterHoldMissionItem(_mission_item, pos_yaw_sp, _param_plot_land_delay.get(), _land_approach.loiter_radius_m);
-
-			if (_param_plot_land_delay.get() < -FLT_EPSILON) {
-				mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: completed, loitering\t");
-				events::send(events::ID("plot_completed_loiter"), events::Log::Info, "PLOT: completed, loitering");
-
-			} else {
-				/* Set the altitude tracking to best effort but not strictly enforce it */
-				altitude_acceptance_radius = FLT_MAX;
-
-				if (_force_heading) {
-					_mission_item.force_heading = true;
-				}
-			}
-
-			break;
-		}
 
 	case PLOTState::MOVE_TO_LAND: {
 
@@ -288,9 +218,6 @@ void PlotDirect::set_plot_item()
 
 			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
 
-			// Prepare for transition
-			_mission_item.vtol_back_transition = true;
-			_mission_item.force_heading = false;
 
 			// set previous item location to loiter location such that vehicle tracks line between loiter
 			// location and land location after exiting the loiter circle
@@ -302,8 +229,7 @@ void PlotDirect::set_plot_item()
 			break;
 		}
 
-
-	case PLOTState::LAND: {
+	case PLOTState::HIT_TARGET: {
 			PositionYawSetpoint pos_yaw_sp{_destination};
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 			setLandMissionItem(_mission_item, pos_yaw_sp);
@@ -347,7 +273,7 @@ PlotDirect::PLOTState PlotDirect::getActivationLandState()
 
 	PLOTState land_state;
 
-	land_state = PLOTState::MOVE_TO_LOITER;
+	land_state = PLOTState::MOVE_TO_TARGET;
 
 	return land_state;
 }
@@ -380,7 +306,7 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 		switch (start_state_for_estimate) {
 
 		// FALLTHROUGH
-		case PLOTState::MOVE_TO_LOITER: {
+		case PLOTState::MOVE_TO_TARGET: {
 				matrix::Vector2f direction{};
 				get_vector_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, land_approach.lat,
 							    land_approach.lon, &direction(0), &direction(1));
@@ -394,41 +320,12 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 			}
 
 		// FALLTHROUGH
-		case PLOTState::LOITER_DOWN: {
-				// when descending, the target altitude is stored in the current mission item
-				float initial_altitude = 0.f;
-
-				if (start_state_for_estimate == PLOTState::LOITER_DOWN) {
-					// Take current vehicle altitude as the starting point for calculation
-					initial_altitude = _global_pos_sub.get().alt;  // TODO: Check if this is in the right frame
-
-				} else {
-					// Take the return altitude as the starting point for the calculation
-					initial_altitude = _plot_alt; // CLIMB and RETURN
-				}
-
-				_plot_time_estimator.addVertDistance(loiter_altitude - initial_altitude);
-			}
-
-		// FALLTHROUGH
-		case PLOTState::LOITER_HOLD:
-			// Add land delay (the short pause for deploying landing gear)
-			_plot_time_estimator.addWait(_param_plot_land_delay.get());
-
-			if (_param_plot_land_delay.get() < -FLT_EPSILON) { // Set to loiter infinitely and not land. Stop calculation here
-				break;
-			}
-
-
-		// FALLTHROUGH
 		case PLOTState::MOVE_TO_LAND:
-
-		// FALLTHROUGH
-		case PLOTState::LAND: {
+		case PLOTState::HIT_TARGET: {
 				float initial_altitude;
 
 				// Add land segment (second landing phase) which comes after LOITER
-				if (start_state_for_estimate == PLOTState::LAND) {
+				if (start_state_for_estimate == PLOTState::HIT_TARGET) {
 					// If we are in this phase, use the current vehicle altitude  instead
 					// of the altitude paramteter to get a continous time estimate
 					initial_altitude = _global_pos_sub.get().alt;

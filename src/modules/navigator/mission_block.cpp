@@ -99,6 +99,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 
 	// Indefinite Waypoints
 	case NAV_CMD_LAND: /* fall through */
+	case NAV_CMD_HIT_TARGET: /* fall through */
 	case NAV_CMD_VTOL_LAND:
 		return _navigator->get_land_detected()->landed;
 
@@ -592,6 +593,7 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_LOITER_UNLIMITED ||
 	       item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
 	       item.nav_cmd == NAV_CMD_LAND ||
+	       item.nav_cmd == NAV_CMD_HIT_TARGET ||
 	       item.nav_cmd == NAV_CMD_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_LOITER_TO_ALT ||
 	       item.nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
@@ -670,6 +672,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		break;
 
 	case NAV_CMD_LAND:
+	case NAV_CMD_HIT_TARGET:
 	case NAV_CMD_VTOL_LAND:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
@@ -800,6 +803,27 @@ MissionBlock::set_land_item(struct mission_item_s *item)
 		item->lat = (double)NAN;
 		item->lon = (double)NAN;
 	}
+
+	item->yaw = NAN;
+
+	item->altitude = 0;
+	item->altitude_is_relative = false;
+	item->loiter_radius = _navigator->get_loiter_radius();
+	item->acceptance_radius = _navigator->get_acceptance_radius();
+	item->time_inside = 0.0f;
+	item->autocontinue = true;
+	item->origin = ORIGIN_ONBOARD;
+}
+
+void
+MissionBlock::set_target_item(struct mission_item_s *item)
+{
+	/* set the target item */
+	item->nav_cmd = NAV_CMD_HIT_TARGET;
+
+	// set target item to home position
+	item->lat = _navigator->get_home_position()->lat;
+	item->lon = _navigator->get_home_position()->lon;
 
 	item->yaw = NAN;
 
@@ -962,6 +986,19 @@ void MissionBlock::setMoveToPositionMissionItem(mission_item_s &item, const Posi
 void MissionBlock::setLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
 	item.nav_cmd = NAV_CMD_LAND;
+	item.lat = pos_yaw_sp.lat;
+	item.lon = pos_yaw_sp.lon;
+	item.altitude = pos_yaw_sp.alt;
+	item.yaw = pos_yaw_sp.yaw;
+	item.acceptance_radius = _navigator->get_acceptance_radius();
+	item.time_inside = 0.0f;
+	item.autocontinue = true;
+	item.origin = ORIGIN_ONBOARD;
+}
+
+void MissionBlock::setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+{
+	item.nav_cmd = NAV_CMD_HIT_TARGET;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;

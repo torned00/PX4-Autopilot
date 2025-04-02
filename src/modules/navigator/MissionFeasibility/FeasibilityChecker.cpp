@@ -249,6 +249,7 @@ bool FeasibilityChecker::checkMissionItemValidity(mission_item_s &mission_item, 
 	    mission_item.nav_cmd != NAV_CMD_LOITER_TIME_LIMIT &&
 	    mission_item.nav_cmd != NAV_CMD_RETURN_TO_LAUNCH &&
 	    mission_item.nav_cmd != NAV_CMD_LAND &&
+	    mission_item.nav_cmd != NAV_CMD_HIT_TARGET &&
 	    mission_item.nav_cmd != NAV_CMD_TAKEOFF &&
 	    mission_item.nav_cmd != NAV_CMD_LOITER_TO_ALT &&
 	    mission_item.nav_cmd != NAV_CMD_VTOL_TAKEOFF &&

@@ -179,6 +179,11 @@ protected:
 	void set_land_item(struct mission_item_s *item);
 
 	/**
+	 * Set a target mission item
+	 */
+	void set_target_item(struct mission_item_s *item);
+
+	/**
 	 * Set idle mission item
 	 */
 	void set_idle_item(struct mission_item_s *item);
@@ -196,6 +201,8 @@ protected:
 	void setMoveToPositionMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
 	void setLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+
+	void setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
 	void startPrecLand(uint16_t land_precision);
 	void updateAltToAvoidTerrainCollisionAndRepublishTriplet(mission_item_s mission_item);

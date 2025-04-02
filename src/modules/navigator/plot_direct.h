@@ -111,7 +111,7 @@ public:
 
 	void setPlotPosition(PositionYawSetpoint position, loiter_point_s loiter_pos);
 
-	bool isLanding() { return (_plot_state != PLOTState::IDLE) && (_plot_state >= PLOTState::LOITER_DOWN);};
+	bool isLanding() { return (_plot_state == PLOTState::HIT_TARGET || _plot_state == PLOTState::MOVE_TO_LAND);};
 
 private:
 	/**
@@ -119,11 +119,9 @@ private:
 	 *
 	 */
 	enum class PLOTState {
-		MOVE_TO_LOITER,
-		LOITER_DOWN,
-		LOITER_HOLD,
+		MOVE_TO_TARGET,
 		MOVE_TO_LAND,
-		LAND,
+		HIT_TARGET,
 		IDLE
 	} _plot_state{PLOTState::IDLE}; /*< Current state in the state machine.*/
 
