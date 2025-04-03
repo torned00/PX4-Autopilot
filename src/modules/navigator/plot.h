@@ -99,17 +99,6 @@ private:
 	void findPlotDestination(PositionYawSetpoint &plot_position, float &plot_alt);
 
 	/**
-	 * @brief calculate return altitude from cone half angle
-	 *
-	 * @param[in] plot_position landing position of the plot
-	 * @param[in] cone_half_angle_deg half angle of the cone [deg]
-	 * @return return altitude
-	 */
-	float calculate_return_alt_from_cone_half_angle(const PositionYawSetpoint &plot_position,
-			float cone_half_angle_deg) const;
-
-
-	/**
 	 * @brief Update parameters
 	 *
 	 */
@@ -121,7 +110,6 @@ private:
 	PlotType _plot_type{PlotType::PLOT_DIRECT};
 
 	bool _home_has_land_approach;			///< Flag if the home position has a land approach defined
-	bool _one_rally_point_has_land_approach;	///< Flag if a rally point has a land approach defined
 
 	PlotDirect _plot_direct;
 
@@ -129,7 +117,6 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::RTL_TYPE>)          _param_plot_type,
-		(ParamInt<px4::params::RTL_CONE_ANG>)      _param_plot_cone_half_angle_deg,
 		(ParamFloat<px4::params::RTL_RETURN_ALT>)  _param_plot_return_alt,
 		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_plot_min_dist,
 		(ParamFloat<px4::params::NAV_ACC_RAD>)     _param_nav_acc_rad,

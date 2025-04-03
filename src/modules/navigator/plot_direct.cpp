@@ -337,10 +337,6 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 					initial_altitude = loiter_altitude;
 				}
 
-				if (_vehicle_status_sub.get().is_vtol) {
-					_plot_time_estimator.setVehicleType(vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
-				}
-
 				_plot_time_estimator.addVertDistance(_destination.alt - initial_altitude);
 			}
 

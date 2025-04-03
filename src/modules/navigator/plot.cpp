@@ -209,51 +209,7 @@ void PLOT::findPlotDestination(PositionYawSetpoint &plot_position, float &plot_a
 	plot_position.lon = _home_pos_sub.get().lon;
 	plot_position.yaw = _home_pos_sub.get().yaw;
 
-	if (_param_plot_cone_half_angle_deg.get() > 0
-	    && _vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
-		plot_alt = calculate_return_alt_from_cone_half_angle(plot_position, (float)_param_plot_cone_half_angle_deg.get());
-
-	} else {
-		plot_alt = max(_global_pos_sub.get().alt, plot_position.alt + _param_plot_return_alt.get());
-	}
-}
-
-
-float PLOT::calculate_return_alt_from_cone_half_angle(const PositionYawSetpoint &plot_position,
-		float cone_half_angle_deg) const
-{
-	// horizontal distance to destination
-	const float destination_dist = get_distance_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon,
-				       plot_position.lat, plot_position.lon);
-
-	// minium plot altitude to use when outside of horizontal acceptance radius of target position.
-	// We choose the minimum height to be two times the distance from the land position in order to
-	// avoid the vehicle touching the ground while still moving horizontally.
-	const float return_altitude_min_outside_acceptance_rad_amsl = plot_position.alt + 2.0f * _param_nav_acc_rad.get();
-
-	const float max_return_altitude = plot_position.alt + _param_plot_return_alt.get();
-
-	float return_altitude_amsl = max_return_altitude;
-
-	if (destination_dist <= _param_nav_acc_rad.get()) {
-		return_altitude_amsl = plot_position.alt + 2.0f * destination_dist;
-
-	} else {
-		if (destination_dist <= _param_plot_min_dist.get()) {
-
-			// constrain cone half angle to meaningful values. All other cases are already handled above.
-			const float cone_half_angle_rad = radians(constrain(cone_half_angle_deg, 1.0f, 89.0f));
-
-			// minimum altitude we need in order to be within the user defined cone
-			const float cone_intersection_altitude_amsl = destination_dist / tanf(cone_half_angle_rad) + plot_position.alt;
-
-			return_altitude_amsl = min(cone_intersection_altitude_amsl, return_altitude_amsl);
-		}
-
-		return_altitude_amsl = max(return_altitude_amsl, return_altitude_min_outside_acceptance_rad_amsl);
-	}
-
-	return constrain(return_altitude_amsl, _global_pos_sub.get().alt, max_return_altitude);
+	plot_alt = max(_global_pos_sub.get().alt, plot_position.alt + _param_plot_return_alt.get());
 }
 
 
