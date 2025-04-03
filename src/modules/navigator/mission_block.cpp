@@ -1003,6 +1003,7 @@ void MissionBlock::setTargetMissionItem(mission_item_s &item, const PositionYawS
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;
 	item.yaw = pos_yaw_sp.yaw;
+	item.altitude_is_relative = false;
 	item.acceptance_radius = _navigator->get_acceptance_radius();
 	item.time_inside = 0.0f;
 	item.autocontinue = true;

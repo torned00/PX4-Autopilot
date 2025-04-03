@@ -57,9 +57,10 @@ PlotDirect::PlotDirect(Navigator *navigator) :
 {
 	_destination.lat = static_cast<double>(NAN);
 	_destination.lon = static_cast<double>(NAN);
-	_land_approach.lat = static_cast<double>(NAN);
-	_land_approach.lon = static_cast<double>(NAN);
-	_land_approach.height_m = NAN;
+
+	_crash_approach.entry_lat = static_cast<double>(NAN);
+	_crash_approach.entry_lon = static_cast<double>(NAN);
+	_crash_approach.entry_altitude_m = NAN;
 }
 
 void PlotDirect::on_inactivation()
@@ -109,7 +110,7 @@ void PlotDirect::on_inactive()
 	_vehicle_status_sub.update();
 }
 
-void PlotDirect::setPlotPosition(PositionYawSetpoint plot_position, loiter_point_s loiter_pos)
+void PlotDirect::setPlotPosition(PositionYawSetpoint plot_position, crash_point_s crash_pos)
 {
 	_home_pos_sub.update();
 
@@ -134,9 +135,9 @@ void PlotDirect::setPlotPosition(PositionYawSetpoint plot_position, loiter_point
 			_destination.alt = _home_pos_sub.get().alt;
 		}
 
-		_land_approach = sanitizeLandApproach(loiter_pos);
+		_crash_approach = sanitizeCrashApproach(crash_pos);
 
-		const float dist_to_destination{get_distance_to_next_waypoint(_land_approach.lat, _land_approach.lon, _destination.lat, _destination.lon)};
+		const float dist_to_destination{get_distance_to_next_waypoint(_crash_approach.entry_lat, _crash_approach.entry_lon, _destination.lat, _destination.lon)};
 
 		if (dist_to_destination > _navigator->get_acceptance_radius()) {
 			_force_heading = true;
@@ -179,7 +180,7 @@ void PlotDirect::set_plot_item()
 	const float destination_dist = get_distance_to_next_waypoint(_destination.lat, _destination.lon,
 				       _global_pos_sub.get().lat, _global_pos_sub.get().lon);
 
-	const float loiter_altitude = math::min(_land_approach.height_m, _plot_alt);
+	const float entry_altitude = math::min(_crash_approach.entry_altitude_m, _plot_alt);
 
 	const bool is_close_to_destination = destination_dist < _param_plot_min_dist.get();
 
@@ -189,22 +190,14 @@ void PlotDirect::set_plot_item()
 
 	case PLOTState::MOVE_TO_TARGET: {
 			PositionYawSetpoint pos_yaw_sp {
-				.lat = _land_approach.lat,
-				.lon = _land_approach.lon,
+				.lat = _crash_approach.entry_lat,
+				.lon = _crash_approach.entry_lon,
 				.alt = _plot_alt,
 			};
 
-			// For FW flight:set to LOITER_TIME (with 0s loiter time), such that the loiter (orbit) status
-			// can be displayed on groundstation and the WP is accepted once within loiter radius
-			if (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
-				pos_yaw_sp.yaw = NAN;
-				setLoiterHoldMissionItem(_mission_item, pos_yaw_sp, 0.f, _land_approach.loiter_radius_m);
-
-			} else {
-				// already set final yaw if close to destination and weather vane is disabled
-				pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
-				setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
-			}
+			// already set final yaw if close to destination and weather vane is disabled
+			pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
+			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
 
 			break;
 		}
@@ -213,7 +206,7 @@ void PlotDirect::set_plot_item()
 	case PLOTState::MOVE_TO_LAND: {
 
 			PositionYawSetpoint pos_yaw_sp{_destination};
-			pos_yaw_sp.alt = loiter_altitude;
+			pos_yaw_sp.alt = entry_altitude;
 			pos_yaw_sp.yaw = NAN;
 
 			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
@@ -221,8 +214,8 @@ void PlotDirect::set_plot_item()
 
 			// set previous item location to loiter location such that vehicle tracks line between loiter
 			// location and land location after exiting the loiter circle
-			pos_sp_triplet->previous.lat = _land_approach.lat;
-			pos_sp_triplet->previous.lon = _land_approach.lon;
+			pos_sp_triplet->previous.lat = _crash_approach.entry_lat;
+			pos_sp_triplet->previous.lon = _crash_approach.entry_lon;
 			pos_sp_triplet->previous.alt = get_absolute_altitude_for_item(_mission_item);
 			pos_sp_triplet->previous.valid = true;
 
@@ -232,7 +225,7 @@ void PlotDirect::set_plot_item()
 	case PLOTState::HIT_TARGET: {
 			PositionYawSetpoint pos_yaw_sp{_destination};
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
-			setLandMissionItem(_mission_item, pos_yaw_sp);
+			setTargetMissionItem(_mission_item, pos_yaw_sp);
 
 
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: land at destination\t");
@@ -298,9 +291,9 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 	// TODO: Also check if vehicle position is valid
 	if (PX4_ISFINITE(_destination.lat) && PX4_ISFINITE(_destination.lon) && PX4_ISFINITE(_destination.alt)) {
 
-		loiter_point_s land_approach = sanitizeLandApproach(_land_approach);
+		crash_point_s crash_approach = sanitizeCrashApproach(_crash_approach);
 
-		const float loiter_altitude = min(land_approach.height_m, _plot_alt);
+		const float loiter_altitude = min(crash_approach.entry_altitude_m, _plot_alt);
 
 		// Sum up time estimate for various segments of the landing procedure
 		switch (start_state_for_estimate) {
@@ -308,13 +301,10 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 		// FALLTHROUGH
 		case PLOTState::MOVE_TO_TARGET: {
 				matrix::Vector2f direction{};
-				get_vector_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, land_approach.lat,
-							    land_approach.lon, &direction(0), &direction(1));
-				float move_to_land_dist{get_distance_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, land_approach.lat, land_approach.lon)};
+				get_vector_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, crash_approach.entry_lat,
+							    crash_approach.entry_lon, &direction(0), &direction(1));
+				float move_to_land_dist{get_distance_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, crash_approach.entry_lat, crash_approach.entry_lon)};
 
-				if (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
-					move_to_land_dist = max(0.f, move_to_land_dist - land_approach.loiter_radius_m);
-				}
 
 				_plot_time_estimator.addDistance(move_to_land_dist, direction, 0.f);
 			}
@@ -363,24 +353,40 @@ void PlotDirect::parameters_update()
 	}
 }
 
-loiter_point_s PlotDirect::sanitizeLandApproach(loiter_point_s land_approach) const
+crash_point_s PlotDirect::sanitizeCrashApproach(crash_point_s crash_approach) const
 {
-	loiter_point_s sanitized_land_approach{land_approach};
+	crash_point_s sanitized_crash_approach{crash_approach};
 
-	if (!PX4_ISFINITE(land_approach.lat) || !PX4_ISFINITE(land_approach.lon)) {
-		sanitized_land_approach.lat = _destination.lat;
-		sanitized_land_approach.lon = _destination.lon;
+	if (!PX4_ISFINITE(crash_approach.entry_lat) || !PX4_ISFINITE(crash_approach.entry_lon)) {
+		sanitized_crash_approach.entry_lat = _destination.lat;
+		sanitized_crash_approach.entry_lon = _destination.lon;
 	}
 
-	if (!PX4_ISFINITE(land_approach.height_m)) {
-		sanitized_land_approach.height_m = _destination.alt + _param_plot_descend_alt.get();
+	if (!PX4_ISFINITE(crash_approach.entry_altitude_m)) {
+		sanitized_crash_approach.entry_altitude_m = _destination.alt + _param_plot_descend_alt.get();
 	}
 
-	if (!PX4_ISFINITE(land_approach.loiter_radius_m) || fabsf(land_approach.loiter_radius_m) <= FLT_EPSILON) {
-		sanitized_land_approach.loiter_radius_m = _param_plot_loiter_rad.get();
+	if (!PX4_ISFINITE(crash_approach.dive_angle_deg)) {
+		sanitized_crash_approach.dive_angle_deg = PLOT_DIVE_ANGLE_DEFAULT;
 	}
 
-	return sanitized_land_approach;
+	if (!PX4_ISFINITE(crash_approach.dive_airspeed_ms)) {
+		sanitized_crash_approach.dive_airspeed_ms = PLOT_DIVE_SPEED_DEFAULT;
+	}
+
+	if (!PX4_ISFINITE(crash_approach.max_dive_airspeed_ms)) {
+		sanitized_crash_approach.max_dive_airspeed_ms = PLOT_MAX_SPEED_DEFAULT;
+	}
+
+	if (!PX4_ISFINITE(crash_approach.throttle_setting)) {
+		sanitized_crash_approach.throttle_setting = PLOT_THROTTLE_DEFAULT;
+	}
+
+	if (!PX4_ISFINITE(crash_approach.terminal_maneuver)) {
+		sanitized_crash_approach.terminal_maneuver = PLOT_TERM_MANVR_DEFAULT;
+	}
+
+	return sanitized_crash_approach;
 }
 
 void PlotDirect::publish_plot_direct_navigator_mission_item()

@@ -59,7 +59,7 @@
 #include <lib/rtl/rtl_time_estimator.h>
 #include "mission_block.h"
 #include "navigation.h"
-#include "safe_point_land.hpp"
+#include "crash_land.hpp"
 
 using namespace time_literals;
 
@@ -109,7 +109,7 @@ public:
 	void setPlotAltMin(bool min) { _enforce_plot_alt = min; }
 	void setPlotAlt(float alt) {_plot_alt = alt;};
 
-	void setPlotPosition(PositionYawSetpoint position, loiter_point_s loiter_pos);
+	void setPlotPosition(PositionYawSetpoint position, crash_point_s crash_pos);
 
 	bool isLanding() { return (_plot_state == PLOTState::HIT_TARGET || _plot_state == PLOTState::MOVE_TO_LAND);};
 
@@ -139,10 +139,10 @@ private:
 	void set_plot_item();
 
 	/**
-	 * @brief sanitize land_approach
+	 * @brief sanitize crash_approach
 	 *
 	 */
-	loiter_point_s sanitizeLandApproach(loiter_point_s land_approach) const;
+	crash_point_s sanitizeCrashApproach(crash_point_s crash_approach) const;
 
 	/**
 	 * Check for parameter changes and update them if needed.
@@ -164,9 +164,15 @@ private:
 	RtlTimeEstimator _plot_time_estimator;
 
 	PositionYawSetpoint _destination; ///< the PLOT position to fly to
-	loiter_point_s _land_approach;
+	crash_point_s _crash_approach;
 
 	float _plot_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
+
+	static constexpr float PLOT_DIVE_ANGLE_DEFAULT = -45.0f;     // degrees
+	static constexpr float PLOT_DIVE_SPEED_DEFAULT = 20.0f;      // m/s
+	static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
+	static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
+	static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
 
 	DEFINE_PARAMETERS( // Do not need these?
 		(ParamFloat<px4::params::RTL_DESCEND_ALT>) _param_plot_descend_alt,

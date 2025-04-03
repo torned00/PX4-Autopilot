@@ -180,15 +180,15 @@ void PLOT::setPlotTypeAndDestination()
 		findPlotDestination(plot_position, plot_alt);
 
 
-		loiter_point_s landing_loiter;
-		landing_loiter.lat = plot_position.lat;
-		landing_loiter.lon = plot_position.lon;
-		landing_loiter.height_m = NAN;
+		crash_point_s landing_pos;
+		landing_pos.entry_lat = plot_position.lat;
+		landing_pos.entry_lon = plot_position.lon;
+		landing_pos.entry_altitude_m = plot_alt;
 
 
 		_plot_type = PlotType::PLOT_DIRECT;
 		_plot_direct.setPlotAlt(plot_alt);
-		_plot_direct.setPlotPosition(plot_position, landing_loiter);
+		_plot_direct.setPlotPosition(plot_position, landing_pos);
 
 	}
 
