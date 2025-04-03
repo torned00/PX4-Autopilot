@@ -109,8 +109,6 @@ private:
 
 	PlotType _plot_type{PlotType::PLOT_DIRECT};
 
-	bool _home_has_land_approach;			///< Flag if the home position has a land approach defined
-
 	PlotDirect _plot_direct;
 
 	bool _enforce_plot_alt{false};
