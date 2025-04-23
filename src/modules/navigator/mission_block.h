@@ -202,6 +202,10 @@ protected:
 
 	void setLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
+	void setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const;
+
+	void setTransitionToLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+
 	void setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
 	void startPrecLand(uint16_t land_precision);

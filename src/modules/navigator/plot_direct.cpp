@@ -152,10 +152,10 @@ void PlotDirect::_updatePlotState()
 	switch (_plot_state) {
 
 	case PLOTState::MOVE_TO_TARGET:
-		new_state = PLOTState::MOVE_TO_LAND;
+		new_state = PLOTState::TRANSITION_TO_LAND;
 		break;
 
-	case PLOTState::MOVE_TO_LAND:
+	case PLOTState::TRANSITION_TO_LAND:
 		new_state = PLOTState::HIT_TARGET;
 		break;
 
@@ -189,6 +189,8 @@ void PlotDirect::set_plot_item()
 	switch (_plot_state) {
 
 	case PLOTState::MOVE_TO_TARGET: {
+			PX4_INFO("PLOT State: MOVE_TO_TARGET");
+
 			PositionYawSetpoint pos_yaw_sp {
 				.lat = _crash_approach.entry_lat,
 				.lon = _crash_approach.entry_lon,
@@ -197,19 +199,20 @@ void PlotDirect::set_plot_item()
 
 			// already set final yaw if close to destination and weather vane is disabled
 			pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
-			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
+			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, _crash_approach.entry_radius_m);
 
 			break;
 		}
 
 
-	case PLOTState::MOVE_TO_LAND: {
+	case PLOTState::TRANSITION_TO_LAND: {
+			PX4_INFO("PLOT State: TRANSITION_TO_LAND");
 
 			PositionYawSetpoint pos_yaw_sp{_destination};
 			pos_yaw_sp.alt = entry_altitude;
 			pos_yaw_sp.yaw = NAN;
 
-			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
+			setTransitionToLandMissionItem(_mission_item, pos_yaw_sp);
 
 
 			// set previous item location to loiter location such that vehicle tracks line between loiter
@@ -223,6 +226,7 @@ void PlotDirect::set_plot_item()
 		}
 
 	case PLOTState::HIT_TARGET: {
+			PX4_INFO("PLOT State: HIT_TARGET");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 			setTargetMissionItem(_mission_item, pos_yaw_sp);
@@ -234,6 +238,7 @@ void PlotDirect::set_plot_item()
 		}
 
 	case PLOTState::IDLE: {
+			PX4_INFO("PLOT State: IDLE");
 			set_idle_item(&_mission_item);
 			_navigator->mode_completed(getNavigatorStateId());
 			break;
@@ -310,7 +315,7 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 			}
 
 		// FALLTHROUGH
-		case PLOTState::MOVE_TO_LAND:
+		case PLOTState::TRANSITION_TO_LAND:
 		case PLOTState::HIT_TARGET: {
 				float initial_altitude;
 
@@ -384,6 +389,10 @@ crash_point_s PlotDirect::sanitizeCrashApproach(crash_point_s crash_approach) co
 
 	if (!PX4_ISFINITE(crash_approach.terminal_maneuver)) {
 		sanitized_crash_approach.terminal_maneuver = PLOT_TERM_MANVR_DEFAULT;
+	}
+
+	if (!PX4_ISFINITE(crash_approach.entry_radius_m)) {
+		sanitized_crash_approach.entry_radius_m = _param_plot_loiter_rad.get();
 	}
 
 	return sanitized_crash_approach;

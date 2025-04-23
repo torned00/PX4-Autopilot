@@ -52,6 +52,7 @@ struct crash_point_s {
     double entry_lat;            // Latitude of approach entry point
     double entry_lon;            // Longitude of approach entry point
     float entry_altitude_m;      // Altitude at entry point
+    float entry_radius_m; 	// Loiter radius at entry point
 
     float entry_airspeed_ms;     // Target airspeed at entry
 
@@ -78,6 +79,7 @@ struct crash_point_s {
         entry_lat = entry_lon = target_lat = target_lon = static_cast<double>(NAN);
         entry_altitude_m = entry_airspeed_ms = dive_angle_deg = dive_airspeed_ms = NAN;
         max_dive_airspeed_ms = throttle_setting = terminal_maneuver = NAN;
+        entry_radius_m = NAN;
     }
 
     bool isValid() const

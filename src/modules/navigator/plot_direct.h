@@ -111,7 +111,7 @@ public:
 
 	void setPlotPosition(PositionYawSetpoint position, crash_point_s crash_pos);
 
-	bool isLanding() { return (_plot_state == PLOTState::HIT_TARGET || _plot_state == PLOTState::MOVE_TO_LAND);};
+	bool isLanding() { return (_plot_state == PLOTState::HIT_TARGET || _plot_state == PLOTState::TRANSITION_TO_LAND);};
 
 private:
 	/**
@@ -120,7 +120,7 @@ private:
 	 */
 	enum class PLOTState {
 		MOVE_TO_TARGET,
-		MOVE_TO_LAND,
+		TRANSITION_TO_LAND,
 		HIT_TARGET,
 		IDLE
 	} _plot_state{PLOTState::IDLE}; /*< Current state in the state machine.*/

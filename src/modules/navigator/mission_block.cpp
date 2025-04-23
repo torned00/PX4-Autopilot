@@ -99,6 +99,8 @@ MissionBlock::is_mission_item_reached_or_completed()
 
 	// Indefinite Waypoints
 	case NAV_CMD_LAND: /* fall through */
+	case NAV_CMD_GLIDE_TO_TARGET: /* fall through */
+	case NAV_CMD_TRANSITION_TO_LAND: /* fall through */
 	case NAV_CMD_HIT_TARGET: /* fall through */
 	case NAV_CMD_VTOL_LAND:
 		return _navigator->get_land_detected()->landed;
@@ -439,7 +441,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 			const bool enforce_exit_course = _navigator->get_vstatus()->vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 							 && next_sp.valid
 							 && curr_sp_new->type == position_setpoint_s::SETPOINT_TYPE_LOITER
-							 && (_mission_item.force_heading || _mission_item.nav_cmd == NAV_CMD_WAYPOINT);
+							 && (_mission_item.force_heading || _mission_item.nav_cmd == NAV_CMD_WAYPOINT || _mission_item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET || _mission_item.nav_cmd == NAV_CMD_TRANSITION_TO_LAND);
 
 			// can only enforce exit course if next waypoint is not within loiter radius of current waypoint (with small margin)
 			const bool exit_course_is_reachable = dist_current_next > 1.05f * curr_sp_new->loiter_radius;
@@ -593,6 +595,8 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_LOITER_UNLIMITED ||
 	       item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
 	       item.nav_cmd == NAV_CMD_LAND ||
+	       item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET ||
+	       item.nav_cmd == NAV_CMD_TRANSITION_TO_LAND ||
 	       item.nav_cmd == NAV_CMD_HIT_TARGET ||
 	       item.nav_cmd == NAV_CMD_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_LOITER_TO_ALT ||
@@ -672,7 +676,6 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		break;
 
 	case NAV_CMD_LAND:
-	case NAV_CMD_HIT_TARGET:
 	case NAV_CMD_VTOL_LAND:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
@@ -994,6 +997,41 @@ void MissionBlock::setLandMissionItem(mission_item_s &item, const PositionYawSet
 	item.time_inside = 0.0f;
 	item.autocontinue = true;
 	item.origin = ORIGIN_ONBOARD;
+}
+
+
+void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const
+{
+
+	item.nav_cmd = NAV_CMD_GLIDE_TO_TARGET;
+
+	item.lat = pos_yaw_sp.lat;
+	item.lon = pos_yaw_sp.lon;
+	item.altitude = pos_yaw_sp.alt;
+	item.altitude_is_relative = false;
+
+	item.autocontinue = true;
+	item.acceptance_radius = _navigator->get_acceptance_radius();
+	item.time_inside = 0.f;
+	item.origin = ORIGIN_ONBOARD;
+
+	item.yaw = pos_yaw_sp.yaw;
+}
+
+void MissionBlock::setTransitionToLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+{
+	item.nav_cmd = NAV_CMD_TRANSITION_TO_LAND;
+	item.lat = pos_yaw_sp.lat;
+	item.lon = pos_yaw_sp.lon;
+	item.altitude = pos_yaw_sp.alt;
+	item.altitude_is_relative = false;
+
+	item.autocontinue = true;
+	item.acceptance_radius = _navigator->get_acceptance_radius();
+	item.time_inside = 0.f;
+	item.origin = ORIGIN_ONBOARD;
+
+	item.yaw = pos_yaw_sp.yaw;
 }
 
 void MissionBlock::setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
