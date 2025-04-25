@@ -99,7 +99,17 @@ MissionBlock::is_mission_item_reached_or_completed()
 
 	// Indefinite Waypoints
 	case NAV_CMD_LAND: /* fall through */
-	case NAV_CMD_GLIDE_TO_TARGET: /* fall through */
+	case NAV_CMD_GLIDE_TO_TARGET:
+		if (_mission_item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET) {
+			float dist_xy = -1.0f;
+			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
+					_navigator->get_global_position()->lat,
+					_navigator->get_global_position()->lon);
+
+			PX4_INFO("GLIDE_TO_TARGET: dist_xy=%.2f, loiter_radius=%.2f", (double)dist_xy, (double)_mission_item.loiter_radius);
+			return dist_xy <= _mission_item.loiter_radius;
+		}
+		break;
 	case NAV_CMD_TRANSITION_TO_LAND: /* fall through */
 	case NAV_CMD_HIT_TARGET: /* fall through */
 	case NAV_CMD_VTOL_LAND:
@@ -676,6 +686,17 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		break;
 
 	case NAV_CMD_LAND:
+
+	case NAV_CMD_GLIDE_TO_TARGET:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+		break;
+	case NAV_CMD_TRANSITION_TO_LAND:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_DESCEND;
+		break;
+	case NAV_CMD_HIT_TARGET:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_IMPACT;
+		break;
+
 	case NAV_CMD_VTOL_LAND:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_LAND;
 		break;
@@ -1016,6 +1037,8 @@ void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const Posit
 	item.origin = ORIGIN_ONBOARD;
 
 	item.yaw = pos_yaw_sp.yaw;
+
+	item.loiter_radius = entry_radius;
 }
 
 void MissionBlock::setTransitionToLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
@@ -1032,6 +1055,7 @@ void MissionBlock::setTransitionToLandMissionItem(mission_item_s &item, const Po
 	item.origin = ORIGIN_ONBOARD;
 
 	item.yaw = pos_yaw_sp.yaw;
+
 }
 
 void MissionBlock::setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const

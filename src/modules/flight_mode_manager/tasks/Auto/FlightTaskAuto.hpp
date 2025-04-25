@@ -64,7 +64,9 @@ enum class WaypointType : int {
 	loiter = position_setpoint_s::SETPOINT_TYPE_LOITER,
 	takeoff = position_setpoint_s::SETPOINT_TYPE_TAKEOFF,
 	land = position_setpoint_s::SETPOINT_TYPE_LAND,
-	idle = position_setpoint_s::SETPOINT_TYPE_IDLE
+	idle = position_setpoint_s::SETPOINT_TYPE_IDLE,
+	descend = position_setpoint_s::SETPOINT_TYPE_DESCEND,
+	impact = position_setpoint_s::SETPOINT_TYPE_IMPACT
 };
 
 enum class State {

@@ -8,6 +8,8 @@ uint8 SETPOINT_TYPE_LOITER=2	# loiter setpoint
 uint8 SETPOINT_TYPE_TAKEOFF=3	# takeoff setpoint
 uint8 SETPOINT_TYPE_LAND=4	# land setpoint, altitude must be ignored, descend until landing
 uint8 SETPOINT_TYPE_IDLE=5	# do nothing, switch off motors or keep at idle speed (MC)
+uint8 SETPOINT_TYPE_DESCEND=6	# start a steep descent towards the target position
+uint8 SETPOINT_TYPE_IMPACT=7	# prepare for impact with target position
 
 uint8 LOITER_TYPE_ORBIT=0 	# Circular pattern
 uint8 LOITER_TYPE_FIGUREEIGHT=1 # Pattern resembling an 8

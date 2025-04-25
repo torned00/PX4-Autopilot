@@ -61,6 +61,7 @@ PlotDirect::PlotDirect(Navigator *navigator) :
 	_crash_approach.entry_lat = static_cast<double>(NAN);
 	_crash_approach.entry_lon = static_cast<double>(NAN);
 	_crash_approach.entry_altitude_m = NAN;
+	_crash_approach.entry_radius_m = _param_plot_loiter_rad.get();
 }
 
 void PlotDirect::on_inactivation()
@@ -180,7 +181,7 @@ void PlotDirect::set_plot_item()
 	const float destination_dist = get_distance_to_next_waypoint(_destination.lat, _destination.lon,
 				       _global_pos_sub.get().lat, _global_pos_sub.get().lon);
 
-	const float entry_altitude = math::min(_crash_approach.entry_altitude_m, _plot_alt);
+	// const float entry_altitude = math::min(_crash_approach.entry_altitude_m, _plot_alt);
 
 	const bool is_close_to_destination = destination_dist < _param_plot_min_dist.get();
 
@@ -209,8 +210,8 @@ void PlotDirect::set_plot_item()
 			PX4_INFO("PLOT State: TRANSITION_TO_LAND");
 
 			PositionYawSetpoint pos_yaw_sp{_destination};
-			pos_yaw_sp.alt = entry_altitude;
-			pos_yaw_sp.yaw = NAN;
+			const float descent_buffer = 2.0f; // Small buffer in meters above target
+			pos_yaw_sp.alt = _destination.alt + descent_buffer;
 
 			setTransitionToLandMissionItem(_mission_item, pos_yaw_sp);
 

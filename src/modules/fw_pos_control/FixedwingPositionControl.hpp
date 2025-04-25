@@ -262,7 +262,8 @@ private:
 		FW_POSCTRL_MODE_MANUAL_ALTITUDE,
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_LINE_FOLLOW,
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_HEADING_HOLD,
-		FW_POSCTRL_MODE_OTHER
+		FW_POSCTRL_MODE_OTHER,
+		FW_POSCTRL_MODE_AUTO_DESCEND
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER}; // used to check if the mode has changed
 
 	enum StickConfig {
@@ -688,6 +689,21 @@ private:
 	 */
 	void control_auto_landing_circular(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_curr);
+
+	/**
+	 * @brief Controls automatic descend for steep descent.
+	 *
+	 * To be used in the Precision Landing on Target mode.
+	 *
+	 * @param now Current system time [us]
+	 * @param control_interval Time since last position control call [s]
+	 * @param control_interval Time since the last position control update [s]
+	 * @param ground_speed Local 2D ground speed of vehicle [m/s]
+	 * @param pos_sp_prev previous position setpoint
+	 * @param pos_sp_curr current position setpoint
+	 */
+	void control_auto_descend(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 
 	/* manual control methods */
 
