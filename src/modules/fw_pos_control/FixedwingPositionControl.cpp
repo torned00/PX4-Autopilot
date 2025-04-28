@@ -745,7 +745,11 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 				_control_mode_current = FW_POSCTRL_MODE_AUTO_LANDING_CIRCULAR;
 			}
 
-		} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_DESCEND) {
+		}
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN) {
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_PITCH_DOWN;
+		}
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_DESCEND) {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_DESCEND;
 		}
 		else {
@@ -2208,222 +2212,117 @@ FixedwingPositionControl::control_auto_landing_circular(const hrt_abstime &now, 
 }
 
 void
-FixedwingPositionControl::control_auto_descend(const hrt_abstime &now, const float control_interval,
+FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const float control_interval)
+{
+	static float initial_pitch = NAN;
+	static hrt_abstime start_time = 0;
+
+	// Initialize dive state on first entry
+	if (start_time == 0) {
+		start_time = now;
+		initial_pitch = _pitch; // Current pitch as starting point
+	}
+
+	// Parameters for the transition
+	const float transition_duration = 2.0f;  // seconds for pitch-down transition
+	const float dive_angle_deg = -60.0f;     // aggressive dive angle
+	const float dive_angle_rad = math::radians(dive_angle_deg);
+
+	// Time since transition started
+	const float elapsed_time = (now - start_time) * 1e-6f;
+
+	// Set pitch angle
+	float pitch_setpoint = dive_angle_rad;
+	if (elapsed_time < transition_duration) {
+		// Linearly interpolate pitch from current to dive angle
+		float transition_progress = elapsed_time / transition_duration;
+		pitch_setpoint = initial_pitch + transition_progress * (dive_angle_rad - initial_pitch);
+	}
+
+	// Set minimal control for roll and yaw
+	float roll_setpoint = 0.0f; // level wings for simplicity
+	float yaw_setpoint = _yaw; // maintain current yaw heading
+
+	// Full throttle for now, or adjust as required
+	float throttle_setpoint = _param_fw_thr_max.get();
+
+	// Construct attitude setpoint
+	Quatf attitude_setpoint(Eulerf(roll_setpoint, pitch_setpoint, yaw_setpoint));
+	attitude_setpoint.copyTo(_att_sp.q_d);
+
+	// Assign throttle setpoint
+	_att_sp.thrust_body[0] = throttle_setpoint;
+
+	// Do not alter flaps or spoilers yet (keep simple)
+	_flaps_setpoint = 0.0f;
+	_spoilers_setpoint = 0.0f;
+
+
+	_att_sp.timestamp = hrt_absolute_time();
+	_attitude_sp_pub.publish(_att_sp);
+
+	status_publish();
+
+}
+
+void
+FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, const float control_interval,
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
-	PX4_INFO("control_auto_descend called");
+	// Set target airspeed explicitly (use landing or descent airspeed param)
+	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
+					_param_fw_lnd_airspd.get() :
+					_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
 
-	// first handle non-position things like airspeed and tecs settings
-	const float airspeed_land = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ? _param_fw_lnd_airspd.get() :
-				    _performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
-	float adjusted_min_airspeed = _performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
-
-	if (airspeed_land < adjusted_min_airspeed) {
-		// adjust underspeed detection bounds for landing airspeed
-		_tecs.set_equivalent_airspeed_min(airspeed_land);
-		adjusted_min_airspeed = airspeed_land;
-	}
-
-	float target_airspeed = adapt_airspeed_setpoint(control_interval, airspeed_land, adjusted_min_airspeed,
-				ground_speed);
-
-
+	// Retrieve current and target positions
 	const Vector2f local_position{_local_pos.x, _local_pos.y};
-	Vector2f local_landing_orbit_center = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
 
-	if (_time_started_landing == 0) {
-		// save time at which we started landing and reset landing abort status
-		reset_landing_state();
-		_time_started_landing = now;
-	}
+	// NPFG setup for lateral guidance to target
+	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
+	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
-	const bool abort_on_terrain_timeout = checkLandingAbortBitMask(_param_fw_lnd_abort.get(),
-					      position_controller_landing_status_s::TERRAIN_TIMEOUT);
-	const float terrain_alt = getLandingTerrainAltitudeEstimate(now, pos_sp_curr.alt, false, abort_on_terrain_timeout);
+	// Perform lateral guidance to ensure accurate target tracking
+	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
 
-	// flare at the maximum of the altitude determined by the time before touchdown and a minimum flare altitude
-	const float flare_rel_alt = math::max(_param_fw_lnd_fl_time.get() * _local_pos.vz, _param_fw_lnd_flalt.get());
+	// Get NPFG calculated roll setpoint for lateral guidance
+	float roll_body = getCorrectedNpfgRollSetpoint();
+	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
 
-	float loiter_radius = pos_sp_curr.loiter_radius;
+	// Set and hold aggressive pitch angle for steep descent
+	const float fixed_dive_angle_deg = -60.0f;
+	const float pitch_body = math::radians(fixed_dive_angle_deg);
 
-	if (fabsf(pos_sp_curr.loiter_radius) < FLT_EPSILON) {
-		loiter_radius = _param_nav_loiter_rad.get();
-	}
+	// Maintain current yaw for stability
+	const float yaw_body = _yaw;
 
-	// During landing, enforce low-height flight conditions for tighter altitude control
-	const bool is_low_height = true;
+	// Fixed throttle for stability (consider using FW_THR_IDLE or FW_THR_MAX based on testing)
+	const float throttle_setpoint = _param_fw_thr_max.get();
 
-	// the terrain estimate (if enabled) is always used to determine the flaring altitude
-	float roll_body;
-	float yaw_body;
-	float pitch_body;
-
-	if ((_current_altitude < terrain_alt + flare_rel_alt) || _flare_states.flaring) {
-		// flare and land with minimal speed
-
-		// flaring is a "point of no return"
-		if (!_flare_states.flaring) {
-			_flare_states.flaring = true;
-			_flare_states.start_time = now;
-			_flare_states.initial_height_rate_setpoint = -_local_pos.vz;
-			_flare_states.initial_throttle_setpoint = _att_sp.thrust_body[0];
-		}
-
-		// ramp in flare limits and setpoints with the flare time, command a soft touchdown
-		const float seconds_since_flare_start = hrt_elapsed_time(&_flare_states.start_time) * 1.e-6f;
-		const float flare_ramp_interpolator = math::constrain(seconds_since_flare_start / _param_fw_lnd_fl_time.get(), 0.0f,
-						      1.0f);
-
-		/* lateral guidance first, because npfg will adjust the airspeed setpoint if necessary */
-
-		// tune up the lateral position control guidance when on the ground
-		const float ground_roll_npfg_period = flare_ramp_interpolator * _param_rwto_npfg_period.get() +
-						      (1.0f - flare_ramp_interpolator) * _param_npfg_period.get();
-
-		_npfg.setPeriod(ground_roll_npfg_period);
-		_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-		_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
-
-		navigateLoiter(local_landing_orbit_center, local_position, loiter_radius,
-			       pos_sp_curr.loiter_direction_counter_clockwise,
-			       ground_speed, _wind_vel);
-		target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
-		roll_body = getCorrectedNpfgRollSetpoint();
-
-		yaw_body = _yaw; // yaw is not controlled, so set setpoint to current yaw
-
-		/* longitudinal guidance */
-
-		const float flare_ramp_interpolator_sqrt = sqrtf(flare_ramp_interpolator);
-
-		const float height_rate_setpoint = flare_ramp_interpolator_sqrt * (-_param_fw_lnd_fl_sink.get()) +
-						   (1.0f - flare_ramp_interpolator_sqrt) * _flare_states.initial_height_rate_setpoint;
-
-		float pitch_min_rad = flare_ramp_interpolator_sqrt * radians(_param_fw_lnd_fl_pmin.get()) +
-				      (1.0f - flare_ramp_interpolator_sqrt) * radians(_param_fw_p_lim_min.get());
-		float pitch_max_rad = flare_ramp_interpolator_sqrt * radians(_param_fw_lnd_fl_pmax.get()) +
-				      (1.0f - flare_ramp_interpolator_sqrt) * radians(_param_fw_p_lim_max.get());
-
-		if (_param_fw_lnd_td_time.get() > FLT_EPSILON) {
-			const float touchdown_time = math::max(_param_fw_lnd_td_time.get(), _param_fw_lnd_fl_time.get());
-
-			const float touchdown_interpolator = math::constrain((seconds_since_flare_start - touchdown_time) /
-							     POST_TOUCHDOWN_CLAMP_TIME, 0.0f, 1.0f);
-
-			pitch_max_rad = touchdown_interpolator * math::radians(_param_rwto_psp.get()) + (1.0f - touchdown_interpolator) *
-					pitch_max_rad;
-			pitch_min_rad = touchdown_interpolator * math::radians(_param_rwto_psp.get()) + (1.0f - touchdown_interpolator) *
-					pitch_min_rad;
-		}
-
-		// idle throttle may be >0 for internal combustion engines
-		// normally set to zero for electric motors
-		const float throttle_max = flare_ramp_interpolator_sqrt * _param_fw_thr_idle.get() +
-					   (1.0f - flare_ramp_interpolator_sqrt) *
-					   _param_fw_thr_max.get();
-		const bool disable_underspeed_handling = true;
-
-		tecs_update_pitch_throttle(control_interval,
-					   _current_altitude, // is not controlled, control descend rate
-					   target_airspeed,
-					   pitch_min_rad,
-					   pitch_max_rad,
-					   _param_fw_thr_idle.get(),
-					   throttle_max,
-					   _param_sinkrate_target.get(),
-					   _param_climbrate_target.get(),
-					   is_low_height,
-					   disable_underspeed_handling,
-					   height_rate_setpoint);
-
-		/* set the attitude and throttle commands */
-
-		// TECS has authority (though constrained) over pitch during flare, throttle is hard set to idle
-		pitch_body = get_tecs_pitch();
-
-		// enable direct yaw control using rudder/wheel
-		_att_sp.fw_control_yaw_wheel = true;
-
-		// XXX: hacky way to pass through manual nose-wheel incrementing. need to clean this interface.
-		if (_param_fw_lnd_nudge.get() > LandingNudgingOption::kNudgingDisabled) {
-			_att_sp.yaw_sp_move_rate = _manual_control_setpoint.yaw;
-		}
-
-		// blend the height rate controlled throttle setpoints with initial throttle setting over the flare
-		// ramp time period to maintain throttle command continuity when switching from altitude to height rate
-		// control
-		const float blended_throttle = flare_ramp_interpolator * get_tecs_thrust() + (1.0f - flare_ramp_interpolator) *
-					       _flare_states.initial_throttle_setpoint;
-
-		_att_sp.thrust_body[0] = blended_throttle;
-
-	} else {
-
-		// follow the glide slope
-
-		/* lateral guidance */
-		_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-		_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
-
-		navigateLoiter(local_landing_orbit_center, local_position, loiter_radius,
-			       pos_sp_curr.loiter_direction_counter_clockwise,
-			       ground_speed, _wind_vel);
-		target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
-		roll_body = getCorrectedNpfgRollSetpoint();
-
-		/* longitudinal guidance */
-
-		// open the desired max sink rate to encompass the glide slope if within the aircraft's performance limits
-		// x/sqrt(x^2+1) = sin(arctan(x))
-		const float glide_slope = math::radians(_param_fw_lnd_ang.get());
-		const float glide_slope_sink_rate = airspeed_land * glide_slope / sqrtf(glide_slope * glide_slope + 1.0f);
-		const float desired_max_sinkrate = math::min(math::max(glide_slope_sink_rate, _param_sinkrate_target.get()),
-						   _param_fw_t_sink_max.get());
-		const bool disable_underspeed_handling = false;
-
-		tecs_update_pitch_throttle(control_interval,
-					   _current_altitude, // is not controlled, control descend rate
-					   target_airspeed,
-					   radians(_param_fw_p_lim_min.get()),
-					   radians(_param_fw_p_lim_max.get()),
-					   _param_fw_thr_min.get(),
-					   _param_fw_thr_max.get(),
-					   desired_max_sinkrate,
-					   _param_climbrate_target.get(),
-					   is_low_height,
-					   disable_underspeed_handling,
-					   -glide_slope_sink_rate); // heightrate = -sinkrate
-
-		/* set the attitude and throttle commands */
-
-		pitch_body = get_tecs_pitch();
-
-		// yaw is not controlled in nominal flight
-		yaw_body = _yaw;
-
-		// enable direct yaw control using rudder/wheel
-		_att_sp.fw_control_yaw_wheel = false;
-
-		_att_sp.thrust_body[0] = (_landed) ? _param_fw_thr_idle.get() : get_tecs_thrust();
-	}
-
-	_tecs.set_equivalent_airspeed_min(_performance_model.getMinimumCalibratedAirspeed()); // reset after TECS calculation
-
-	roll_body = constrainRollNearGround(roll_body, _current_altitude, terrain_alt);
-
+	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 
+	// Assign throttle explicitly
+	_att_sp.thrust_body[0] = throttle_setpoint;
 
+	// Optionally set flaps and spoilers for steep descent
 	_flaps_setpoint = _param_fw_flaps_lnd_scl.get();
 	_spoilers_setpoint = _param_fw_spoilers_lnd.get();
 
+	// Update attitude setpoint publication
+	_att_sp.timestamp = hrt_absolute_time();
+	_attitude_sp_pub.publish(_att_sp);
+
+	// Publish position setpoint for logging purposes
 	if (!_vehicle_status.in_transition_to_fw) {
 		publishLocalPositionSetpoint(pos_sp_curr);
 	}
 
+	// Update landing status (if needed for monitoring)
 	landing_status_publish();
-	publishOrbitStatus(pos_sp_curr);
+
+	PX4_INFO("Steep Descend");
 }
 
 void
@@ -2923,8 +2822,13 @@ FixedwingPositionControl::Run()
 				break;
 			}
 
+		case FW_POSCTRL_MODE_AUTO_PITCH_DOWN: {
+				control_auto_pitch_down(_local_pos.timestamp, control_interval);
+				break;
+			}
+
 		case FW_POSCTRL_MODE_AUTO_DESCEND: {
-				control_auto_descend(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
+				control_auto_steep_descend(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
 							      _pos_sp_triplet.current);
 				break;
 			}

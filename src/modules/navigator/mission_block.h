@@ -47,8 +47,10 @@
 #include <drivers/drv_hrt.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/mission.h>
 #include <uORB/topics/position_setpoint_triplet.h>
+#include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vtol_vehicle_status.h>
@@ -204,9 +206,11 @@ protected:
 
 	void setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const;
 
-	void setTransitionToLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+	void setTransitionToDescendMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
-	void setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+	void setSteepDescentMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+
+	void setTargetImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
 	void startPrecLand(uint16_t land_precision);
 	void updateAltToAvoidTerrainCollisionAndRepublishTriplet(mission_item_s mission_item);
@@ -245,4 +249,6 @@ protected:
 
 private:
 	void updateMaxHaglFailsafe();
+
+	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 };

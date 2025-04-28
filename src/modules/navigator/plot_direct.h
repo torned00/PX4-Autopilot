@@ -111,7 +111,7 @@ public:
 
 	void setPlotPosition(PositionYawSetpoint position, crash_point_s crash_pos);
 
-	bool isLanding() { return (_plot_state == PLOTState::HIT_TARGET || _plot_state == PLOTState::TRANSITION_TO_LAND);};
+	bool isLanding() { return (_plot_state == PLOTState::TARGET_IMPACT || _plot_state == PLOTState::STEEP_DESCENT);};
 
 private:
 	/**
@@ -120,8 +120,9 @@ private:
 	 */
 	enum class PLOTState {
 		MOVE_TO_TARGET,
-		TRANSITION_TO_LAND,
-		HIT_TARGET,
+		TRANSITION_TO_DESCEND,
+		STEEP_DESCENT,
+		TARGET_IMPACT,
 		IDLE
 	} _plot_state{PLOTState::IDLE}; /*< Current state in the state machine.*/
 
@@ -173,6 +174,7 @@ private:
 	static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
 	static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
 	static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
+	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 100.0f; // m
 
 	DEFINE_PARAMETERS( // Do not need these?
 		(ParamFloat<px4::params::RTL_DESCEND_ALT>) _param_plot_descend_alt,

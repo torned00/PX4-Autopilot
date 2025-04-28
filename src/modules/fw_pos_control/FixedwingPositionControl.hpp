@@ -263,6 +263,7 @@ private:
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_LINE_FOLLOW,
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_HEADING_HOLD,
 		FW_POSCTRL_MODE_OTHER,
+		FW_POSCTRL_MODE_AUTO_PITCH_DOWN,
 		FW_POSCTRL_MODE_AUTO_DESCEND
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER}; // used to check if the mode has changed
 
@@ -691,6 +692,17 @@ private:
 					   const position_setpoint_s &pos_sp_curr);
 
 	/**
+	 * @brief Controls automatic downwards pitch before steep descent.
+	 *
+	 * To be used in the Precision Landing on Target mode.
+	 *
+	 * @param now Current system time [us]
+	 * @param control_interval Time since last position control call [s]
+	 * @param control_interval Time since the last position control update [s]
+
+	 */
+	void control_auto_pitch_down(const hrt_abstime &now, const float control_interval);
+	/**
 	 * @brief Controls automatic descend for steep descent.
 	 *
 	 * To be used in the Precision Landing on Target mode.
@@ -702,7 +714,7 @@ private:
 	 * @param pos_sp_prev previous position setpoint
 	 * @param pos_sp_curr current position setpoint
 	 */
-	void control_auto_descend(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+	void control_auto_steep_descend(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 
 	/* manual control methods */

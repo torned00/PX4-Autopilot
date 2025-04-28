@@ -153,14 +153,18 @@ void PlotDirect::_updatePlotState()
 	switch (_plot_state) {
 
 	case PLOTState::MOVE_TO_TARGET:
-		new_state = PLOTState::TRANSITION_TO_LAND;
+		new_state = PLOTState::TRANSITION_TO_DESCEND;
 		break;
 
-	case PLOTState::TRANSITION_TO_LAND:
-		new_state = PLOTState::HIT_TARGET;
+	case PLOTState::TRANSITION_TO_DESCEND:
+		new_state = PLOTState::STEEP_DESCENT;
 		break;
 
-	case PLOTState::HIT_TARGET:
+	case PLOTState::STEEP_DESCENT:
+		new_state = PLOTState::TARGET_IMPACT;
+		break;
+
+	case PLOTState::TARGET_IMPACT:
 		new_state = PLOTState::IDLE;
 		break;
 
@@ -200,21 +204,31 @@ void PlotDirect::set_plot_item()
 
 			// already set final yaw if close to destination and weather vane is disabled
 			pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
-			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, _crash_approach.entry_radius_m);
+			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, PLOT_DESCENT_RADIUS_DEFAULT);
 
 			break;
 		}
 
 
-	case PLOTState::TRANSITION_TO_LAND: {
-			PX4_INFO("PLOT State: TRANSITION_TO_LAND");
-
+	case PLOTState::TRANSITION_TO_DESCEND: {
+			PX4_INFO("PLOT State: TRANSITION_TO_DESCEND");
 			PositionYawSetpoint pos_yaw_sp{_destination};
+
+			setTransitionToDescendMissionItem(_mission_item, pos_yaw_sp);
+
+			break;
+		}
+
+	case PLOTState::STEEP_DESCENT: {
+			PX4_INFO("PLOT State: STEEP_DESCENT");
+			PositionYawSetpoint pos_yaw_sp{_destination};
+
 			const float descent_buffer = 2.0f; // Small buffer in meters above target
 			pos_yaw_sp.alt = _destination.alt + descent_buffer;
 
-			setTransitionToLandMissionItem(_mission_item, pos_yaw_sp);
+			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 
+			setSteepDescentMissionItem(_mission_item, pos_yaw_sp);
 
 			// set previous item location to loiter location such that vehicle tracks line between loiter
 			// location and land location after exiting the loiter circle
@@ -226,11 +240,12 @@ void PlotDirect::set_plot_item()
 			break;
 		}
 
-	case PLOTState::HIT_TARGET: {
-			PX4_INFO("PLOT State: HIT_TARGET");
+	case PLOTState::TARGET_IMPACT: {
+			PX4_INFO("PLOT State: TARGET_IMPACT");
 			PositionYawSetpoint pos_yaw_sp{_destination};
+
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
-			setTargetMissionItem(_mission_item, pos_yaw_sp);
+			setTargetImpactMissionItem(_mission_item, pos_yaw_sp);
 
 
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: land at destination\t");
@@ -299,7 +314,7 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 
 		crash_point_s crash_approach = sanitizeCrashApproach(_crash_approach);
 
-		const float loiter_altitude = min(crash_approach.entry_altitude_m, _plot_alt);
+		// const float loiter_altitude = min(crash_approach.entry_altitude_m, _plot_alt);
 
 		// Sum up time estimate for various segments of the landing procedure
 		switch (start_state_for_estimate) {
@@ -316,27 +331,9 @@ rtl_time_estimate_s PlotDirect::calc_rtl_time_estimate()
 			}
 
 		// FALLTHROUGH
-		case PLOTState::TRANSITION_TO_LAND:
-		case PLOTState::HIT_TARGET: {
-				float initial_altitude;
-
-				// Add land segment (second landing phase) which comes after LOITER
-				if (start_state_for_estimate == PLOTState::HIT_TARGET) {
-					// If we are in this phase, use the current vehicle altitude  instead
-					// of the altitude paramteter to get a continous time estimate
-					initial_altitude = _global_pos_sub.get().alt;
-
-
-				} else {
-					// If this phase is not active yet, simply use the loiter altitude,
-					// which is where the LAND phase will start
-					initial_altitude = loiter_altitude;
-				}
-
-				_plot_time_estimator.addVertDistance(_destination.alt - initial_altitude);
-			}
-
-			break;
+		case PLOTState::TRANSITION_TO_DESCEND:
+		case PLOTState::STEEP_DESCENT:
+		case PLOTState::TARGET_IMPACT:
 
 		case PLOTState::IDLE:
 			// Remaining time is 0

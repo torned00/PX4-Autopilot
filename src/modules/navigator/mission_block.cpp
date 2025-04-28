@@ -110,8 +110,38 @@ MissionBlock::is_mission_item_reached_or_completed()
 			return dist_xy <= _mission_item.loiter_radius;
 		}
 		break;
-	case NAV_CMD_TRANSITION_TO_LAND: /* fall through */
-	case NAV_CMD_HIT_TARGET: /* fall through */
+	case NAV_CMD_TRANSITION_TO_DESCEND:
+		if (_mission_item.nav_cmd == NAV_CMD_TRANSITION_TO_DESCEND) {
+
+			const float desired_dive_angle_deg = -60.0f; // same as your control function
+			const float pitch_tolerance_deg = 5.0f;      // allowable tolerance around target angle
+
+			// Get current vehicle attitude
+			vehicle_attitude_s vehicle_attitude;
+			if (_vehicle_attitude_sub.copy(&vehicle_attitude)) {
+				// Convert quaternion to Euler angles to obtain pitch angle
+				matrix::Quatf q_att(vehicle_attitude.q);
+				matrix::Eulerf euler_angles(q_att);
+
+				// Pitch angle in degrees
+				float current_pitch_deg = math::degrees(euler_angles.theta());
+
+				// Check if current pitch is within tolerance
+				bool pitch_reached = current_pitch_deg <= (desired_dive_angle_deg + pitch_tolerance_deg);
+
+				PX4_INFO("TRANSITION_TO_DESCEND: current_pitch=%.2f deg, target_pitch=%.2f deg",
+				         (double)current_pitch_deg, (double)desired_dive_angle_deg);
+
+				return pitch_reached;
+			}
+
+			// Attitude not updated yet
+			return false;
+		}
+		break;
+
+	case NAV_CMD_STEEP_DESCENT: /* fall through */
+	case NAV_CMD_TARGET_IMPACT: /* fall through */
 	case NAV_CMD_VTOL_LAND:
 		return _navigator->get_land_detected()->landed;
 
@@ -451,7 +481,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 			const bool enforce_exit_course = _navigator->get_vstatus()->vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 							 && next_sp.valid
 							 && curr_sp_new->type == position_setpoint_s::SETPOINT_TYPE_LOITER
-							 && (_mission_item.force_heading || _mission_item.nav_cmd == NAV_CMD_WAYPOINT || _mission_item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET || _mission_item.nav_cmd == NAV_CMD_TRANSITION_TO_LAND);
+							 && (_mission_item.force_heading || _mission_item.nav_cmd == NAV_CMD_WAYPOINT);
 
 			// can only enforce exit course if next waypoint is not within loiter radius of current waypoint (with small margin)
 			const bool exit_course_is_reachable = dist_current_next > 1.05f * curr_sp_new->loiter_radius;
@@ -606,8 +636,9 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
 	       item.nav_cmd == NAV_CMD_LAND ||
 	       item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET ||
-	       item.nav_cmd == NAV_CMD_TRANSITION_TO_LAND ||
-	       item.nav_cmd == NAV_CMD_HIT_TARGET ||
+	       item.nav_cmd == NAV_CMD_TRANSITION_TO_DESCEND ||
+	       item.nav_cmd == NAV_CMD_STEEP_DESCENT ||
+	       item.nav_cmd == NAV_CMD_TARGET_IMPACT ||
 	       item.nav_cmd == NAV_CMD_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_LOITER_TO_ALT ||
 	       item.nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
@@ -690,10 +721,13 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	case NAV_CMD_GLIDE_TO_TARGET:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 		break;
-	case NAV_CMD_TRANSITION_TO_LAND:
+	case NAV_CMD_TRANSITION_TO_DESCEND:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN;
+		break;
+	case NAV_CMD_STEEP_DESCENT:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_DESCEND;
 		break;
-	case NAV_CMD_HIT_TARGET:
+	case NAV_CMD_TARGET_IMPACT:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_IMPACT;
 		break;
 
@@ -827,27 +861,6 @@ MissionBlock::set_land_item(struct mission_item_s *item)
 		item->lat = (double)NAN;
 		item->lon = (double)NAN;
 	}
-
-	item->yaw = NAN;
-
-	item->altitude = 0;
-	item->altitude_is_relative = false;
-	item->loiter_radius = _navigator->get_loiter_radius();
-	item->acceptance_radius = _navigator->get_acceptance_radius();
-	item->time_inside = 0.0f;
-	item->autocontinue = true;
-	item->origin = ORIGIN_ONBOARD;
-}
-
-void
-MissionBlock::set_target_item(struct mission_item_s *item)
-{
-	/* set the target item */
-	item->nav_cmd = NAV_CMD_HIT_TARGET;
-
-	// set target item to home position
-	item->lat = _navigator->get_home_position()->lat;
-	item->lon = _navigator->get_home_position()->lon;
 
 	item->yaw = NAN;
 
@@ -1041,9 +1054,9 @@ void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const Posit
 	item.loiter_radius = entry_radius;
 }
 
-void MissionBlock::setTransitionToLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+void MissionBlock::setTransitionToDescendMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
-	item.nav_cmd = NAV_CMD_TRANSITION_TO_LAND;
+	item.nav_cmd = NAV_CMD_TRANSITION_TO_DESCEND;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;
@@ -1058,9 +1071,26 @@ void MissionBlock::setTransitionToLandMissionItem(mission_item_s &item, const Po
 
 }
 
-void MissionBlock::setTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+void MissionBlock::setSteepDescentMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
-	item.nav_cmd = NAV_CMD_HIT_TARGET;
+	item.nav_cmd = NAV_CMD_STEEP_DESCENT;
+	item.lat = pos_yaw_sp.lat;
+	item.lon = pos_yaw_sp.lon;
+	item.altitude = pos_yaw_sp.alt;
+	item.altitude_is_relative = false;
+
+	item.autocontinue = true;
+	item.acceptance_radius = _navigator->get_acceptance_radius();
+	item.time_inside = 0.f;
+	item.origin = ORIGIN_ONBOARD;
+
+	item.yaw = pos_yaw_sp.yaw;
+
+}
+
+void MissionBlock::setTargetImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+{
+	item.nav_cmd = NAV_CMD_TARGET_IMPACT;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;

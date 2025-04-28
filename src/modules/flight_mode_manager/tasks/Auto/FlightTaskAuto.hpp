@@ -65,6 +65,7 @@ enum class WaypointType : int {
 	takeoff = position_setpoint_s::SETPOINT_TYPE_TAKEOFF,
 	land = position_setpoint_s::SETPOINT_TYPE_LAND,
 	idle = position_setpoint_s::SETPOINT_TYPE_IDLE,
+	pitch = position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN,
 	descend = position_setpoint_s::SETPOINT_TYPE_DESCEND,
 	impact = position_setpoint_s::SETPOINT_TYPE_IMPACT
 };
