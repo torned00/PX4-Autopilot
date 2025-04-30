@@ -42,7 +42,6 @@ set(NAVIGATOR_SOURCES
 	mission.cpp
 	loiter.cpp
 	plot.cpp
-	plot_direct.cpp
 	rtl.cpp
 	rtl_direct.cpp
 	rtl_direct_mission_land.cpp

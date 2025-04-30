@@ -64,10 +64,6 @@ PLOT::PLOT(Navigator *navigator) :
 	_destination.lat = static_cast<double>(NAN);
 	_destination.lon = static_cast<double>(NAN);
 
-	_crash_approach.entry_lat = static_cast<double>(NAN);
-	_crash_approach.entry_lon = static_cast<double>(NAN);
-	_crash_approach.entry_altitude_m = NAN;
-	_crash_approach.entry_radius_m = _param_plot_loiter_rad.get();
 }
 
 void PLOT::on_inactivation()
@@ -90,24 +86,8 @@ void PLOT::on_inactive()
 	if ((now - _destination_check_time) > 2_s) {
 		_destination_check_time = now;
 		setPlotTypeAndDestination();
-		publishRemainingTimeEstimate();
 	}
 
-}
-
-void PLOT::publishRemainingTimeEstimate()
-{
-	const bool global_position_recently_updated = _global_pos_sub.get().timestamp > 0
-			&& hrt_elapsed_time(&_global_pos_sub.get().timestamp) < 10_s;
-
-	rtl_time_estimate_s estimated_time{};
-	estimated_time.valid = false;
-
-	if (_navigator->home_global_position_valid() && global_position_recently_updated) {
-		estimated_time = calc_rtl_time_estimate();
-	}
-
-	_rtl_time_estimate_pub.publish(estimated_time);
 }
 
 void PLOT::on_activation()
@@ -154,39 +134,21 @@ void PLOT::on_active()
 		set_plot_item();
 	}
 
-	// Keep publishing remaining time estimates every 2 seconds
-	hrt_abstime now{hrt_absolute_time()};
 
-	if ((now - _destination_check_time) > 2_s) {
-		_destination_check_time = now;
-		publishRemainingTimeEstimate();
-	}
 }
 
 void PLOT::setPlotTypeAndDestination()
 {
+	PositionYawSetpoint plot_position;
+	float plot_alt;
 
-	if (_param_plot_type.get() != 2) {
-		// check the closest allowed destination.
-		PositionYawSetpoint plot_position;
-		float plot_alt;
-		findPlotDestination(plot_position, plot_alt);
+	findPlotDestination(plot_position, plot_alt);
 
-		crash_point_s landing_pos;
-		landing_pos.entry_lat = plot_position.lat;
-		landing_pos.entry_lon = plot_position.lon;
-		landing_pos.entry_altitude_m = plot_alt;
 
-		_plot_type = PlotType::PLOT_DIRECT;
-		setPlotAlt(plot_alt);
-		setPlotPosition(plot_position, landing_pos);
+	_plot_type = PlotType::PLOT_DIRECT;
+	setPlotAlt(plot_alt);
+	setPlotPosition(plot_position);
 
-	}
-
-	// Publish plot status
-	_plot_status_pub.get().timestamp = hrt_absolute_time();
-	_plot_status_pub.get().rtl_type = static_cast<uint8_t>(_plot_type);
-	_plot_status_pub.update();
 
 }
 
@@ -201,11 +163,8 @@ void PLOT::findPlotDestination(PositionYawSetpoint &plot_position, float &plot_a
 	plot_alt = _global_pos_sub.get().alt;
 }
 
-void PLOT::setPlotPosition(PositionYawSetpoint plot_position, crash_point_s crash_pos)
+void PLOT::setPlotPosition(PositionYawSetpoint plot_position)
 {
-	_home_pos_sub.update();
-	parameters_update();
-
 	// Only allow to set a new approach if the mode is not activated yet.
 	if (!isActive()) {
 		_destination = plot_position;
@@ -216,21 +175,11 @@ void PLOT::setPlotPosition(PositionYawSetpoint plot_position, crash_point_s cras
 			// We don't have a valid plot position, use the home position instead.
 			_destination.lat = _home_pos_sub.get().lat;
 			_destination.lon = _home_pos_sub.get().lon;
-			_destination.alt = _home_pos_sub.get().alt;
-			_destination.yaw = _home_pos_sub.get().yaw;
 		}
 
 		if (!PX4_ISFINITE(_destination.alt)) {
 			// Not a valid plot land altitude. Assume same altitude as home position.
 			_destination.alt = _home_pos_sub.get().alt;
-		}
-
-		_crash_approach = sanitizeCrashApproach(crash_pos);
-
-		const float dist_to_destination{get_distance_to_next_waypoint(_crash_approach.entry_lat, _crash_approach.entry_lon, _destination.lat, _destination.lon)};
-
-		if (dist_to_destination > _navigator->get_acceptance_radius()) {
-			_force_heading = true;
 		}
 	}
 }
@@ -283,8 +232,8 @@ void PLOT::set_plot_item()
 			PX4_INFO("PLOT State: MOVE_TO_TARGET");
 
 			PositionYawSetpoint pos_yaw_sp {
-				.lat = _crash_approach.entry_lat,
-				.lon = _crash_approach.entry_lon,
+				.lat = _destination.lat,
+				.lon = _destination.lon,
 				.alt = _plot_alt,
 			};
 
@@ -314,13 +263,6 @@ void PLOT::set_plot_item()
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 
 			setSteepDescentMissionItem(_mission_item, pos_yaw_sp);
-
-			// set previous item location to loiter location such that vehicle tracks line between loiter
-			// location and land location after exiting the loiter circle
-			pos_sp_triplet->previous.lat = _crash_approach.entry_lat;
-			pos_sp_triplet->previous.lon = _crash_approach.entry_lon;
-			pos_sp_triplet->previous.alt = get_absolute_altitude_for_item(_mission_item);
-			pos_sp_triplet->previous.valid = true;
 
 			break;
 		}
@@ -382,97 +324,6 @@ void PLOT::parameters_update()
 		// this class attributes need updating (and do so).
 		updateParams();
 	}
-}
-
-rtl_time_estimate_s PLOT::calc_rtl_time_estimate()
-{
-	_global_pos_sub.update();
-	_plot_time_estimator.update();
-	_plot_time_estimator.setVehicleType(_vehicle_status_sub.get().vehicle_type);
-	_plot_time_estimator.reset();
-
-	PLOTState start_state_for_estimate;
-
-	if (isActive()) {
-		start_state_for_estimate = _plot_state;
-
-	} else {
-		start_state_for_estimate = getActivationLandState();
-	}
-
-	// Calculate PLOT time estimate only when there is a valid destination
-	// TODO: Also check if vehicle position is valid
-	if (PX4_ISFINITE(_destination.lat) && PX4_ISFINITE(_destination.lon) && PX4_ISFINITE(_destination.alt)) {
-
-		crash_point_s crash_approach = sanitizeCrashApproach(_crash_approach);
-
-		// const float loiter_altitude = min(crash_approach.entry_altitude_m, _plot_alt);
-
-		// Sum up time estimate for various segments of the landing procedure
-		switch (start_state_for_estimate) {
-
-		// FALLTHROUGH
-		case PLOTState::MOVE_TO_TARGET: {
-				matrix::Vector2f direction{};
-				get_vector_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, crash_approach.entry_lat,
-							    crash_approach.entry_lon, &direction(0), &direction(1));
-				float move_to_land_dist{get_distance_to_next_waypoint(_global_pos_sub.get().lat, _global_pos_sub.get().lon, crash_approach.entry_lat, crash_approach.entry_lon)};
-
-
-				_plot_time_estimator.addDistance(move_to_land_dist, direction, 0.f);
-			}
-
-		// FALLTHROUGH
-		case PLOTState::TRANSITION_TO_DESCEND:
-		case PLOTState::STEEP_DESCENT:
-		case PLOTState::TARGET_IMPACT:
-		case PLOTState::IDLE:
-			// Remaining time is 0
-			break;
-		}
-	}
-
-	return _plot_time_estimator.getEstimate();
-}
-
-crash_point_s PLOT::sanitizeCrashApproach(crash_point_s crash_approach) const
-{
-	crash_point_s sanitized_crash_approach{crash_approach};
-
-	if (!PX4_ISFINITE(crash_approach.entry_lat) || !PX4_ISFINITE(crash_approach.entry_lon)) {
-		sanitized_crash_approach.entry_lat = _destination.lat;
-		sanitized_crash_approach.entry_lon = _destination.lon;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.entry_altitude_m)) {
-		sanitized_crash_approach.entry_altitude_m = _destination.alt + _param_plot_descend_alt.get();
-	}
-
-	if (!PX4_ISFINITE(crash_approach.dive_angle_deg)) {
-		sanitized_crash_approach.dive_angle_deg = PLOT_DIVE_ANGLE_DEFAULT;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.dive_airspeed_ms)) {
-		sanitized_crash_approach.dive_airspeed_ms = PLOT_DIVE_SPEED_DEFAULT;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.max_dive_airspeed_ms)) {
-		sanitized_crash_approach.max_dive_airspeed_ms = PLOT_MAX_SPEED_DEFAULT;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.throttle_setting)) {
-		sanitized_crash_approach.throttle_setting = PLOT_THROTTLE_DEFAULT;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.terminal_maneuver)) {
-		sanitized_crash_approach.terminal_maneuver = PLOT_TERM_MANVR_DEFAULT;
-	}
-
-	if (!PX4_ISFINITE(crash_approach.entry_radius_m)) {
-		sanitized_crash_approach.entry_radius_m = _param_plot_loiter_rad.get();
-	}
-
-	return sanitized_crash_approach;
 }
 
 void PLOT::publish_plot_direct_navigator_mission_item()

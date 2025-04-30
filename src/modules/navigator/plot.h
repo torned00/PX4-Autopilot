@@ -47,9 +47,7 @@
 #include "mission_block.h"
 #include "navigator_mode.h"
 #include "navigation.h"
-#include "crash_land.hpp"
 
-#include <lib/rtl/rtl_time_estimator.h>
 #include <matrix/Vector2.hpp>
 
 #include <uORB/Publication.hpp>
@@ -59,8 +57,6 @@
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/navigator_mission_item.h>
 #include <uORB/topics/parameter_update.h>
-#include <uORB/topics/rtl_status.h>
-#include <uORB/topics/rtl_time_estimate.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_status.h>
@@ -105,17 +101,10 @@ public:
 
 	void initialize() override {};
 
-	/**
-	 * @brief Calculate the estimated time needed to perform precision landing.
-	 *
-	 * @return estimated time to perform precision landing, based on rtl time estimate.
-	 */
-	rtl_time_estimate_s calc_rtl_time_estimate();
-
 	void setPlotAltMin(bool min) { _enforce_plot_alt = min; }
 	void setPlotAlt(float alt) {_plot_alt = alt;};
 
-	void setPlotPosition(PositionYawSetpoint position, crash_point_s crash_pos);
+	void setPlotPosition(PositionYawSetpoint position);
 
 	bool isLanding() { return (_plot_state == PLOTState::TARGET_IMPACT || _plot_state == PLOTState::STEEP_DESCENT);};
 
@@ -145,12 +134,6 @@ private:
 	void set_plot_item();
 
 	/**
-	 * @brief sanitize crash_approach
-	 *
-	 */
-	crash_point_s sanitizeCrashApproach(crash_point_s crash_approach) const;
-
-	/**
 	 * Check for parameter changes and update them if needed.
 	 */
 	void parameters_update();
@@ -170,12 +153,6 @@ private:
 	void setPlotTypeAndDestination();
 
 	/**
-	 * @brief Publish the remaining time estimate to go to the PLOT landing point.
-	 *
-	 */
-	void publishRemainingTimeEstimate();
-
-	/**
 	 * @brief Find PLOT destination.
 	 *
 	 */
@@ -185,10 +162,8 @@ private:
 
 	bool _enforce_plot_alt{false};
 	bool _force_heading{false};
-	RtlTimeEstimator _plot_time_estimator;
 
 	PositionYawSetpoint _destination; ///< the PLOT position to fly to
-	crash_point_s _crash_approach;
 
 	float _plot_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
 
@@ -206,14 +181,10 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::RTL_DESCEND_ALT>) _param_plot_descend_alt,
-		(ParamFloat<px4::params::RTL_LAND_DELAY>)  _param_plot_land_delay,
 		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_plot_min_dist,
-		(ParamInt<px4::params::RTL_PLD_MD>)        _param_plot_pld_md,
 		(ParamFloat<px4::params::RTL_LOITER_RAD>)  _param_plot_loiter_rad,
-		(ParamInt<px4::params::RTL_TYPE>)          _param_plot_type,
 		// external params
-		(ParamBool<px4::params::WV_EN>) 	_param_wv_en,
-		(ParamFloat<px4::params::NAV_ACC_RAD>)	_param_nav_acc_rad
+		(ParamBool<px4::params::WV_EN>) 	_param_wv_en
 	)
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
@@ -225,6 +196,4 @@ private:
 	uORB::SubscriptionData<wind_s>		_wind_sub{ORB_ID(wind)};
 
 	uORB::Publication<navigator_mission_item_s> _navigator_mission_item_pub{ORB_ID::navigator_mission_item}; /**< Navigator mission item publication*/
-	uORB::Publication<rtl_time_estimate_s> _rtl_time_estimate_pub{ORB_ID(rtl_time_estimate)};
-	uORB::PublicationData<rtl_status_s> _plot_status_pub{ORB_ID(rtl_status)};
 };
