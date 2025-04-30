@@ -85,14 +85,14 @@ void PLOT::on_inactive()
 
 	if ((now - _destination_check_time) > 2_s) {
 		_destination_check_time = now;
-		setPlotTypeAndDestination();
+		initializePlotDestination();
 	}
 
 }
 
 void PLOT::on_activation()
 {
-	setPlotTypeAndDestination();
+	initializePlotDestination();
 
 	_global_pos_sub.update();
 	_vehicle_status_sub.update();
@@ -105,8 +105,6 @@ void PLOT::on_activation()
 	// reset cruising speed and throttle to default for PLOT
 	_navigator->reset_cruising_speed();
 	_navigator->set_cruising_throttle();
-
-	setPlotAltMin(_enforce_plot_alt);
 
 	set_plot_item();
 
@@ -137,51 +135,29 @@ void PLOT::on_active()
 
 }
 
-void PLOT::setPlotTypeAndDestination()
+void PLOT::initializePlotDestination()
 {
-	PositionYawSetpoint plot_position;
-	float plot_alt;
-
-	findPlotDestination(plot_position, plot_alt);
-
-
-	_plot_type = PlotType::PLOT_DIRECT;
-	setPlotAlt(plot_alt);
-	setPlotPosition(plot_position);
-
-
-}
-
-void PLOT::findPlotDestination(PositionYawSetpoint &plot_position, float &plot_alt)
-{
-	// set destination to home per default, then check if other valid landing spot is closer
-	plot_position.alt = _home_pos_sub.get().alt;
-	plot_position.lat = _home_pos_sub.get().lat;
-	plot_position.lon = _home_pos_sub.get().lon;
-	plot_position.yaw = _home_pos_sub.get().yaw;
-
-	plot_alt = _global_pos_sub.get().alt;
-}
-
-void PLOT::setPlotPosition(PositionYawSetpoint plot_position)
-{
-	// Only allow to set a new approach if the mode is not activated yet.
-	if (!isActive()) {
-		_destination = plot_position;
-		_force_heading = false;
-
-		// Input sanitation
-		if (!PX4_ISFINITE(_destination.lat) || !PX4_ISFINITE(_destination.lon)) {
-			// We don't have a valid plot position, use the home position instead.
-			_destination.lat = _home_pos_sub.get().lat;
-			_destination.lon = _home_pos_sub.get().lon;
-		}
-
-		if (!PX4_ISFINITE(_destination.alt)) {
-			// Not a valid plot land altitude. Assume same altitude as home position.
-			_destination.alt = _home_pos_sub.get().alt;
-		}
+	if (isActive()) {
+		// Already in motion, no changes allowed
+		return;
 	}
+
+	const home_position_s &home = _home_pos_sub.get();
+
+	// Build destination directly from home
+	_destination.lat = PX4_ISFINITE(home.lat) ? home.lat : 0.0;
+	_destination.lon = PX4_ISFINITE(home.lon) ? home.lon : 0.0;
+	_destination.alt = PX4_ISFINITE(home.alt) ? home.alt : 0.0f;
+	_destination.yaw = PX4_ISFINITE(home.yaw) ? home.yaw : NAN;
+
+	// Optional: fallback sanity check
+	if (!PX4_ISFINITE(_destination.lat) || !PX4_ISFINITE(_destination.lon)) {
+		PX4_WARN("PLOT: Home position invalid, cannot set destination");
+	}
+
+	_plot_alt = _global_pos_sub.get().alt;
+
+	_force_heading = false;
 }
 
 void PLOT::_updatePlotState()
@@ -306,12 +282,6 @@ void PLOT::set_plot_item()
 	}
 
 	publish_plot_direct_navigator_mission_item(); // for logging
-}
-
-PLOT::PLOTState PLOT::getActivationLandState()
-{
-	_land_detected_sub.update();
-	return PLOTState::MOVE_TO_TARGET;
 }
 
 void PLOT::parameters_update()

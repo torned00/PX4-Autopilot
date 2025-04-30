@@ -101,10 +101,7 @@ public:
 
 	void initialize() override {};
 
-	void setPlotAltMin(bool min) { _enforce_plot_alt = min; }
-	void setPlotAlt(float alt) {_plot_alt = alt;};
-
-	void setPlotPosition(PositionYawSetpoint position);
+	void initializePlotDestination();
 
 	bool isLanding() { return (_plot_state == PLOTState::TARGET_IMPACT || _plot_state == PLOTState::STEEP_DESCENT);};
 
@@ -144,20 +141,6 @@ private:
 	 */
 	void publish_plot_direct_navigator_mission_item();
 
-	PLOTState getActivationLandState();
-
-	/**
-	 * @brief Set the plot type and destination
-	 *
-	 */
-	void setPlotTypeAndDestination();
-
-	/**
-	 * @brief Find PLOT destination.
-	 *
-	 */
-	void findPlotDestination(PositionYawSetpoint &plot_position, float &plot_alt);
-
 	hrt_abstime _destination_check_time{0};
 
 	bool _enforce_plot_alt{false};
@@ -166,11 +149,6 @@ private:
 	PositionYawSetpoint _destination; ///< the PLOT position to fly to
 
 	float _plot_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
-
-	// Enum for plot type
-	enum class PlotType {
-		PLOT_DIRECT = 0
-	} _plot_type{PlotType::PLOT_DIRECT};
 
 	static constexpr float PLOT_DIVE_ANGLE_DEFAULT = -45.0f;     // degrees
 	static constexpr float PLOT_DIVE_SPEED_DEFAULT = 20.0f;      // m/s
