@@ -55,8 +55,6 @@ using namespace time_literals;
 using namespace math;
 using matrix::wrap_pi;
 
-static constexpr float MIN_DIST_THRESHOLD = 2.f;
-
 PLOT::PLOT(Navigator *navigator) :
 	MissionBlock(navigator, vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT),
 	ModuleParams(navigator)
@@ -312,7 +310,7 @@ void PLOT::publish_plot_direct_navigator_mission_item()
 	navigator_mission_item.yaw = _mission_item.yaw;
 
 	navigator_mission_item.frame = _mission_item.frame;
-	navigator_mission_item.frame = _mission_item.origin;
+	navigator_mission_item.frame = _mission_item.origin; // Is this a double assignment?
 
 	navigator_mission_item.loiter_exit_xtrack = _mission_item.loiter_exit_xtrack;
 	navigator_mission_item.force_heading = _mission_item.force_heading;

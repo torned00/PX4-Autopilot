@@ -128,7 +128,7 @@ private:
 	 * @brief Set the return to launch control setpoint.
 	 *
 	 */
-	void set_plot_item();
+	void set_plot_item(); // Consider renaming to make more sense
 
 	/**
 	 * Check for parameter changes and update them if needed.
@@ -143,18 +143,17 @@ private:
 
 	hrt_abstime _destination_check_time{0};
 
-	bool _enforce_plot_alt{false};
 	bool _force_heading{false};
 
 	PositionYawSetpoint _destination; ///< the PLOT position to fly to
 
 	float _plot_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
 
-	static constexpr float PLOT_DIVE_ANGLE_DEFAULT = -45.0f;     // degrees
-	static constexpr float PLOT_DIVE_SPEED_DEFAULT = 20.0f;      // m/s
-	static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
-	static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
-	static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
+	//static constexpr float PLOT_DIVE_ANGLE_DEFAULT = -45.0f;     // degrees
+	//static constexpr float PLOT_DIVE_SPEED_DEFAULT = 20.0f;      // m/s
+	//static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
+	//static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
+	//static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
 	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 100.0f;
 
 	DEFINE_PARAMETERS(
