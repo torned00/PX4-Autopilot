@@ -263,8 +263,10 @@ private:
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_LINE_FOLLOW,
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_HEADING_HOLD,
 		FW_POSCTRL_MODE_OTHER,
+		FW_POSCTRL_MODE_AUTO_GLIDE,
 		FW_POSCTRL_MODE_AUTO_PITCH_DOWN,
-		FW_POSCTRL_MODE_AUTO_DESCEND
+		FW_POSCTRL_MODE_AUTO_DESCEND,
+		FW_POSCTRL_MODE_AUTO_IMPACT
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER}; // used to check if the mode has changed
 
 	enum StickConfig {
@@ -692,6 +694,20 @@ private:
 					   const position_setpoint_s &pos_sp_curr);
 
 	/**
+	 * @brief Controls automatic glide to target position at current altitude.
+	 *
+	 * To be used in the Precision Landing on Target mode.
+	 *
+	 * @param control_interval Time since last position control call [s]
+	 * @param curr_pos Current 2D local position vector of vehicle [m]
+	 * @param ground_speed Local 2D ground speed of vehicle [m/s]
+	 * @param pos_sp_prev previous position setpoint
+	 * @param pos_sp_curr current position setpoint
+	 */
+	void control_auto_glide(const float control_interval, const Vector2d &curr_pos, const Vector2f &ground_speed,
+				   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
+
+	/**
 	 * @brief Controls automatic downwards pitch before steep descent.
 	 *
 	 * To be used in the Precision Landing on Target mode.
@@ -715,6 +731,22 @@ private:
 	 * @param pos_sp_curr current position setpoint
 	 */
 	void control_auto_steep_descend(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
+
+
+	/**
+	 * @brief Controls behavious at final impact with target position.
+	 *
+	 * To be used in the Precision Landing on Target mode.
+	 *
+	 * @param now Current system time [us]
+	 * @param control_interval Time since last position control call [s]
+	 * @param control_interval Time since the last position control update [s]
+	 * @param ground_speed Local 2D ground speed of vehicle [m/s]
+	 * @param pos_sp_prev previous position setpoint
+	 * @param pos_sp_curr current position setpoint
+	 */
+	void control_auto_impact(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 
 	/* manual control methods */

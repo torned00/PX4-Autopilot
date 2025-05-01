@@ -746,11 +746,17 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 			}
 
 		}
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_GLIDE) {
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_GLIDE;
+		}
 		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN) {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_PITCH_DOWN;
 		}
 		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_DESCEND) {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_DESCEND;
+		}
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_IMPACT) {
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_IMPACT;
 		}
 		else {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO;
@@ -1042,10 +1048,8 @@ FixedwingPositionControl::handle_setpoint_type(const position_setpoint_s &pos_sp
 			&& pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION && _position_setpoint_current_valid
 			&& pos_sp_next.type == position_setpoint_s::SETPOINT_TYPE_LAND && _position_setpoint_next_valid;
 
-	const bool is_in_plot = _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT;
-
 	// check if we should switch to loiter but only if we are not expecting a backtransition to happen
-	if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION && !approaching_vtol_backtransition && !is_in_plot) {
+	if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION && !approaching_vtol_backtransition) {
 
 		float dist_xy = -1.f;
 		float dist_z = -1.f;
@@ -2212,6 +2216,100 @@ FixedwingPositionControl::control_auto_landing_circular(const hrt_abstime &now, 
 }
 
 void
+FixedwingPositionControl::control_auto_glide(const float control_interval, const Vector2d &curr_pos,
+		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
+{
+	const float acc_rad = _npfg.switchDistance(500.0f);
+	float tecs_fw_thr_min;
+	float tecs_fw_thr_max;
+
+	if (pos_sp_curr.gliding_enabled) {
+		/* enable gliding with this waypoint */
+		_tecs.set_speed_weight(2.0f);
+		tecs_fw_thr_min = 0.0;
+		tecs_fw_thr_max = 0.0;
+
+	} else {
+		tecs_fw_thr_min = _param_fw_thr_min.get();
+		tecs_fw_thr_max = _param_fw_thr_max.get();
+	}
+
+	// waypoint is a plain navigation waypoint
+	float position_sp_alt = pos_sp_curr.alt;
+
+	// Altitude first order hold (FOH)
+	if (_position_setpoint_previous_valid &&
+	    ((pos_sp_prev.type == position_setpoint_s::SETPOINT_TYPE_POSITION) ||
+	     (pos_sp_prev.type == position_setpoint_s::SETPOINT_TYPE_LOITER))
+	   ) {
+		const float d_curr_prev = get_distance_to_next_waypoint(pos_sp_curr.lat, pos_sp_curr.lon, pos_sp_prev.lat,
+					  pos_sp_prev.lon);
+
+		// Do not try to find a solution if the last waypoint is inside the acceptance radius of the current one
+		if (d_curr_prev > math::max(acc_rad, fabsf(pos_sp_curr.loiter_radius))) {
+			// Calculate distance to current waypoint
+			const float d_curr = get_distance_to_next_waypoint(pos_sp_curr.lat, pos_sp_curr.lon, _current_latitude,
+					     _current_longitude);
+
+			// Save distance to waypoint if it is the smallest ever achieved, however make sure that
+			// _min_current_sp_distance_xy is never larger than the distance between the current and the previous wp
+			_min_current_sp_distance_xy = math::min(d_curr, _min_current_sp_distance_xy, d_curr_prev);
+
+			// if the minimal distance is smaller than the acceptance radius, we should be at waypoint alt
+			// navigator will soon switch to the next waypoint item (if there is one) as soon as we reach this altitude
+			if (_min_current_sp_distance_xy > math::max(acc_rad, fabsf(pos_sp_curr.loiter_radius))) {
+				// The setpoint is set linearly and such that the system reaches the current altitude at the acceptance
+				// radius around the current waypoint
+				const float delta_alt = (pos_sp_curr.alt - pos_sp_prev.alt);
+				const float grad = -delta_alt / (d_curr_prev - math::max(acc_rad, fabsf(pos_sp_curr.loiter_radius)));
+				const float a = pos_sp_prev.alt - grad * d_curr_prev;
+
+				position_sp_alt = a + grad * _min_current_sp_distance_xy;
+			}
+		}
+	}
+
+	float target_airspeed = adapt_airspeed_setpoint(control_interval, pos_sp_curr.cruising_speed,
+				_performance_model.getMinimumCalibratedAirspeed(getLoadFactor()), ground_speed);
+
+	Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
+	Vector2f curr_wp_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+
+	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
+	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
+
+	if (_position_setpoint_previous_valid && pos_sp_prev.type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
+		Vector2f prev_wp_local = _global_local_proj_ref.project(pos_sp_prev.lat, pos_sp_prev.lon);
+		navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+
+	} else {
+		navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+	}
+
+	float roll_body = getCorrectedNpfgRollSetpoint();
+	target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
+
+	float yaw_body = _yaw; // yaw is not controlled, so set setpoint to current yaw
+
+	const bool is_low_height = checkLowHeightConditions();
+
+	tecs_update_pitch_throttle(control_interval,
+				   position_sp_alt,
+				   target_airspeed,
+				   radians(_param_fw_p_lim_min.get()),
+				   radians(_param_fw_p_lim_max.get()),
+				   tecs_fw_thr_min,
+				   tecs_fw_thr_max,
+				   _param_sinkrate_target.get(),
+				   _param_climbrate_target.get(),
+				   is_low_height);
+
+	const float pitch_body = get_tecs_pitch();
+	const Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
+	attitude_setpoint.copyTo(_att_sp.q_d);
+}
+
+void
 FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const float control_interval)
 {
 	static float initial_pitch = NAN;
@@ -2323,6 +2421,13 @@ FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, con
 	landing_status_publish();
 
 	PX4_INFO("Steep Descend");
+}
+
+void
+FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
+{
+
 }
 
 void
@@ -2822,6 +2927,12 @@ FixedwingPositionControl::Run()
 				break;
 			}
 
+		case FW_POSCTRL_MODE_AUTO_GLIDE: {
+				control_auto_glide(control_interval, curr_pos, ground_speed, _pos_sp_triplet.previous,
+							      _pos_sp_triplet.current);
+				break;
+			}
+
 		case FW_POSCTRL_MODE_AUTO_PITCH_DOWN: {
 				control_auto_pitch_down(_local_pos.timestamp, control_interval);
 				break;
@@ -2829,6 +2940,12 @@ FixedwingPositionControl::Run()
 
 		case FW_POSCTRL_MODE_AUTO_DESCEND: {
 				control_auto_steep_descend(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
+							      _pos_sp_triplet.current);
+				break;
+			}
+
+		case FW_POSCTRL_MODE_AUTO_IMPACT: {
+				control_auto_impact(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
 							      _pos_sp_triplet.current);
 				break;
 			}

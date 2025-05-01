@@ -128,7 +128,7 @@ private:
 	 * @brief Set the return to launch control setpoint.
 	 *
 	 */
-	void set_plot_item(); // Consider renaming to make more sense
+	void set_plot_navigator_mission_item(); // Consider renaming to make more sense
 
 	/**
 	 * Check for parameter changes and update them if needed.
@@ -139,7 +139,7 @@ private:
 	 * @brief Publish navigator mission item
 	 *
 	 */
-	void publish_plot_direct_navigator_mission_item();
+	void publish_plot_navigator_mission_item();
 
 	hrt_abstime _destination_check_time{0};
 
@@ -157,9 +157,7 @@ private:
 	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 100.0f;
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RTL_DESCEND_ALT>) _param_plot_descend_alt,
 		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_plot_min_dist,
-		(ParamFloat<px4::params::RTL_LOITER_RAD>)  _param_plot_loiter_rad,
 		// external params
 		(ParamBool<px4::params::WV_EN>) 	_param_wv_en
 	)

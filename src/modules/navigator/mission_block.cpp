@@ -719,7 +719,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	case NAV_CMD_LAND:
 
 	case NAV_CMD_GLIDE_TO_TARGET:
-		sp->type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+		sp->type = position_setpoint_s::SETPOINT_TYPE_GLIDE;
 		break;
 	case NAV_CMD_TRANSITION_TO_DESCEND:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN;

@@ -104,7 +104,7 @@ void PLOT::on_activation()
 	_navigator->reset_cruising_speed();
 	_navigator->set_cruising_throttle();
 
-	set_plot_item();
+	set_plot_navigator_mission_item();
 
 	mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: start glide at %d m (%d m above destination)\t",
 			 (int)ceilf(_plot_alt), (int)ceilf(_plot_alt - _destination.alt));
@@ -127,7 +127,7 @@ void PLOT::on_active()
 
 	if (_plot_state != PLOTState::IDLE && is_mission_item_reached_or_completed()) {
 		_updatePlotState();
-		set_plot_item();
+		set_plot_navigator_mission_item();
 	}
 
 
@@ -189,7 +189,7 @@ void PLOT::_updatePlotState()
 	_plot_state = new_state;
 }
 
-void PLOT::set_plot_item()
+void PLOT::set_plot_navigator_mission_item()
 {
 	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
@@ -279,7 +279,7 @@ void PLOT::set_plot_item()
 		}
 	}
 
-	publish_plot_direct_navigator_mission_item(); // for logging
+	publish_plot_navigator_mission_item(); // for logging
 }
 
 void PLOT::parameters_update()
@@ -294,7 +294,7 @@ void PLOT::parameters_update()
 	}
 }
 
-void PLOT::publish_plot_direct_navigator_mission_item()
+void PLOT::publish_plot_navigator_mission_item()
 {
 	navigator_mission_item_s navigator_mission_item{};
 
