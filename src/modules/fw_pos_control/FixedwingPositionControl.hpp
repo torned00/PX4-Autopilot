@@ -56,6 +56,7 @@
 #include <drivers/drv_hrt.h>
 #include <lib/geo/geo.h>
 #include <lib/atmosphere/atmosphere.h>
+#include <lib/l1/ECL_L1_Pos_Controller.hpp>
 #include <lib/npfg/npfg.hpp>
 #include <lib/tecs/TECS.hpp>
 #include <lib/mathlib/mathlib.h>
@@ -426,6 +427,9 @@ private:
 	// CLosest point on path to track
 	matrix::Vector2f _closest_point_on_path;
 
+	// L1 guidance
+	ECL_L1_Pos_Controller _l1_control;
+
 	// nonlinear path following guidance - lateral-directional position control
 	NPFG _npfg;
 	bool _need_report_npfg_uncertain_condition{false}; ///< boolean if reporting of uncertain npfg output condition is needed
@@ -717,7 +721,8 @@ private:
 	 * @param control_interval Time since the last position control update [s]
 
 	 */
-	void control_auto_pitch_down(const hrt_abstime &now, const float control_interval);
+	void control_auto_pitch_down(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+					   const position_setpoint_s &pos_sp_curr);
 	/**
 	 * @brief Controls automatic descend for steep descent.
 	 *
@@ -1022,6 +1027,10 @@ private:
 
 		(ParamFloat<px4::params::FW_PN_R_SLEW_MAX>) _param_fw_pn_r_slew_max,
 		(ParamFloat<px4::params::FW_R_LIM>) _param_fw_r_lim,
+
+		(ParamFloat<px4::params::GND_L1_PERIOD>) _param_gnd_l1_period,
+		(ParamFloat<px4::params::GND_L1_DAMPING>) _param_gnd_l1_damping,
+		(ParamFloat<px4::params::GND_L1_DIST>) _param_gnd_l1_dist,
 
 		(ParamFloat<px4::params::NPFG_PERIOD>) _param_npfg_period,
 		(ParamFloat<px4::params::NPFG_DAMPING>) _param_npfg_damping,

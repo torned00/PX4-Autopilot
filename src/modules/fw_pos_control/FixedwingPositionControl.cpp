@@ -110,6 +110,10 @@ FixedwingPositionControl::parameters_update()
 
 	_roll_slew_rate.setSlewRate(radians(_param_fw_pn_r_slew_max.get()));
 
+	// L1 parameters
+	_l1_control.set_l1_period(_param_gnd_l1_period.get());
+	_l1_control.set_l1_damping(_param_gnd_l1_damping.get());
+
 	// NPFG parameters
 	_npfg.setPeriod(_param_npfg_period.get());
 	_npfg.setDamping(_param_npfg_damping.get());
@@ -2220,27 +2224,19 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
 	const float acc_rad = _npfg.switchDistance(500.0f);
-	float tecs_fw_thr_min;
-	float tecs_fw_thr_max;
 
-	if (pos_sp_curr.gliding_enabled) {
-		/* enable gliding with this waypoint */
-		_tecs.set_speed_weight(2.0f);
-		tecs_fw_thr_min = 0.0;
-		tecs_fw_thr_max = 0.0;
+	// Set throttle to zero to enforce gliding
+	const float tecs_fw_thr_min = 0.0;
+	const float tecs_fw_thr_max = 0.0;
 
-	} else {
-		tecs_fw_thr_min = _param_fw_thr_min.get();
-		tecs_fw_thr_max = _param_fw_thr_max.get();
-	}
+	_tecs.set_speed_weight(2.0f);
 
-	// waypoint is a plain navigation waypoint
+	// Altitude setpoint is the current altitude
 	float position_sp_alt = pos_sp_curr.alt;
 
 	// Altitude first order hold (FOH)
 	if (_position_setpoint_previous_valid &&
-	    ((pos_sp_prev.type == position_setpoint_s::SETPOINT_TYPE_POSITION) ||
-	     (pos_sp_prev.type == position_setpoint_s::SETPOINT_TYPE_LOITER))
+	    (pos_sp_prev.type == position_setpoint_s::SETPOINT_TYPE_GLIDE)
 	   ) {
 		const float d_curr_prev = get_distance_to_next_waypoint(pos_sp_curr.lat, pos_sp_curr.lon, pos_sp_prev.lat,
 					  pos_sp_prev.lon);
@@ -2269,6 +2265,7 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 		}
 	}
 
+	// Airspeed control
 	float target_airspeed = adapt_airspeed_setpoint(control_interval, pos_sp_curr.cruising_speed,
 				_performance_model.getMinimumCalibratedAirspeed(getLoadFactor()), ground_speed);
 
@@ -2278,18 +2275,38 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
+	const bool _use_l1_in_glide_mode = false;
+	float roll_body;
+
+	// Waypoint navigation
 	if (_position_setpoint_previous_valid && pos_sp_prev.type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
 		Vector2f prev_wp_local = _global_local_proj_ref.project(pos_sp_prev.lat, pos_sp_prev.lon);
-		navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+		if (_use_l1_in_glide_mode) {
+			_l1_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed);
+			// Compute roll from lateral accel
+			float lateral_accel = _l1_control.nav_lateral_acceleration_demand();
+			roll_body = atan2f(lateral_accel, CONSTANTS_ONE_G);
+		} else {
+			navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+			roll_body = getCorrectedNpfgRollSetpoint();
+		}
 
 	} else {
-		navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+		if (_use_l1_in_glide_mode) {
+			_l1_control.navigate_waypoints(curr_wp_local, curr_wp_local, curr_pos_local, ground_speed);
+			// Compute roll from lateral accel
+			float lateral_accel = _l1_control.nav_lateral_acceleration_demand();
+			roll_body = atan2f(lateral_accel, CONSTANTS_ONE_G);
+		} else {
+			navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+			roll_body = getCorrectedNpfgRollSetpoint();
+		}
 	}
 
-	float roll_body = getCorrectedNpfgRollSetpoint();
+
 	target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
 
-	float yaw_body = _yaw; // yaw is not controlled, so set setpoint to current yaw
+	float yaw_body = atan2f(ground_speed(1), ground_speed(0)); // atan2(vy, vx)
 
 	const bool is_low_height = checkLowHeightConditions();
 
@@ -2304,13 +2321,14 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 				   _param_climbrate_target.get(),
 				   is_low_height);
 
+	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 	const float pitch_body = get_tecs_pitch();
 	const Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 }
 
 void
-FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const float control_interval)
+FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed, const  position_setpoint_s &pos_sp_curr)
 {
 	static float initial_pitch = NAN;
 	static hrt_abstime start_time = 0;
@@ -2321,40 +2339,36 @@ FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const 
 		initial_pitch = _pitch; // Current pitch as starting point
 	}
 
+	Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
+	Vector2f curr_wp_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+
+
+
 	// Parameters for the transition
-	const float transition_duration = 2.0f;  // seconds for pitch-down transition
+	const float transition_duration = 1.0f;  // seconds for pitch-down transition
 	const float dive_angle_deg = -60.0f;     // aggressive dive angle
 	const float dive_angle_rad = math::radians(dive_angle_deg);
 
 	// Time since transition started
 	const float elapsed_time = (now - start_time) * 1e-6f;
+	const float transition_progress = math::constrain(elapsed_time / transition_duration, 0.f, 1.f);
 
 	// Set pitch angle
-	float pitch_setpoint = dive_angle_rad;
-	if (elapsed_time < transition_duration) {
-		// Linearly interpolate pitch from current to dive angle
-		float transition_progress = elapsed_time / transition_duration;
-		pitch_setpoint = initial_pitch + transition_progress * (dive_angle_rad - initial_pitch);
-	}
+	const float pitch_setpoint = initial_pitch + transition_progress * (dive_angle_rad - initial_pitch);
+
+	// Set yaw toward target
+	const float yaw_setpoint = atan2f(ground_speed(1), ground_speed(0)); // atan2(vy, vx)
 
 	// Set minimal control for roll and yaw
-	float roll_setpoint = 0.0f; // level wings for simplicity
-	float yaw_setpoint = _yaw; // maintain current yaw heading
+	navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
+	float roll_setpoint = getCorrectedNpfgRollSetpoint();
 
-	// Full throttle for now, or adjust as required
-	float throttle_setpoint = _param_fw_thr_max.get();
 
 	// Construct attitude setpoint
 	Quatf attitude_setpoint(Eulerf(roll_setpoint, pitch_setpoint, yaw_setpoint));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 
-	// Assign throttle setpoint
-	_att_sp.thrust_body[0] = throttle_setpoint;
-
-	// Do not alter flaps or spoilers yet (keep simple)
-	_flaps_setpoint = 0.0f;
-	_spoilers_setpoint = 0.0f;
-
+	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 
 	_att_sp.timestamp = hrt_absolute_time();
 	_attitude_sp_pub.publish(_att_sp);
@@ -2381,7 +2395,7 @@ FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, con
 	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
 	// Perform lateral guidance to ensure accurate target tracking
-	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
+	navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
 
 	// Get NPFG calculated roll setpoint for lateral guidance
 	float roll_body = getCorrectedNpfgRollSetpoint();
@@ -2394,19 +2408,11 @@ FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, con
 	// Maintain current yaw for stability
 	const float yaw_body = _yaw;
 
-	// Fixed throttle for stability (consider using FW_THR_IDLE or FW_THR_MAX based on testing)
-	const float throttle_setpoint = _param_fw_thr_max.get();
-
 	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 
-	// Assign throttle explicitly
-	_att_sp.thrust_body[0] = throttle_setpoint;
-
-	// Optionally set flaps and spoilers for steep descent
-	_flaps_setpoint = _param_fw_flaps_lnd_scl.get();
-	_spoilers_setpoint = _param_fw_spoilers_lnd.get();
+	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 
 	// Update attitude setpoint publication
 	_att_sp.timestamp = hrt_absolute_time();
@@ -2934,7 +2940,7 @@ FixedwingPositionControl::Run()
 			}
 
 		case FW_POSCTRL_MODE_AUTO_PITCH_DOWN: {
-				control_auto_pitch_down(_local_pos.timestamp, control_interval);
+				control_auto_pitch_down(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.current);
 				break;
 			}
 
