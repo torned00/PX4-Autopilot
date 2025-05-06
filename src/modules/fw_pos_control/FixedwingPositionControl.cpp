@@ -2275,35 +2275,18 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
-	const bool _use_l1_in_glide_mode = false;
 	float roll_body;
 
 	// Waypoint navigation
 	if (_position_setpoint_previous_valid && pos_sp_prev.type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
 		Vector2f prev_wp_local = _global_local_proj_ref.project(pos_sp_prev.lat, pos_sp_prev.lon);
-		if (_use_l1_in_glide_mode) {
-			_l1_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed);
-			// Compute roll from lateral accel
-			float lateral_accel = _l1_control.nav_lateral_acceleration_demand();
-			roll_body = atan2f(lateral_accel, CONSTANTS_ONE_G);
-		} else {
-			navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
-			roll_body = getCorrectedNpfgRollSetpoint();
-		}
+		navigateWaypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
 
 	} else {
-		if (_use_l1_in_glide_mode) {
-			_l1_control.navigate_waypoints(curr_wp_local, curr_wp_local, curr_pos_local, ground_speed);
-			// Compute roll from lateral accel
-			float lateral_accel = _l1_control.nav_lateral_acceleration_demand();
-			roll_body = atan2f(lateral_accel, CONSTANTS_ONE_G);
-		} else {
-			navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
-			roll_body = getCorrectedNpfgRollSetpoint();
-		}
+		navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
 	}
 
-
+	roll_body = getCorrectedNpfgRollSetpoint();
 	target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
 
 	float yaw_body = atan2f(ground_speed(1), ground_speed(0)); // atan2(vy, vx)

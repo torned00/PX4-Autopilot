@@ -169,5 +169,6 @@ private:
 	void vehicle_manual_poll(const float yaw_body);
 	void vehicle_attitude_setpoint_poll();
 	void vehicle_land_detected_poll();
+	float generate_gaussian_noise(float mean, float stddev);
 	float get_airspeed_constrained();
 };

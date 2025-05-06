@@ -154,7 +154,7 @@ private:
 	//static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
 	//static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
 	//static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
-	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 50.0f;
+	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 100.0f;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_plot_min_dist,

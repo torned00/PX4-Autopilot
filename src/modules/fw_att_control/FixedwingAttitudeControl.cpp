@@ -32,6 +32,8 @@
  ****************************************************************************/
 
 #include "FixedwingAttitudeControl.hpp"
+#include <random>
+
 
 using namespace time_literals;
 using namespace matrix;
@@ -138,6 +140,13 @@ FixedwingAttitudeControl::vehicle_land_detected_poll()
 			_landed = vehicle_land_detected.landed;
 		}
 	}
+}
+
+float FixedwingAttitudeControl::generate_gaussian_noise(float mean, float stddev)
+{
+	static std::default_random_engine generator;
+	std::normal_distribution<float> distribution(mean, stddev);
+	return distribution(generator);
 }
 
 float FixedwingAttitudeControl::get_airspeed_constrained()
@@ -376,6 +385,15 @@ void FixedwingAttitudeControl::Run()
 					_rates_sp.roll = body_rates_setpoint(0);
 					_rates_sp.pitch = body_rates_setpoint(1);
 					_rates_sp.yaw = body_rates_setpoint(2);
+
+					if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT)
+					{
+						_rates_sp.roll += generate_gaussian_noise(0.0f, 0.02f);
+						_rates_sp.pitch += generate_gaussian_noise(0.0f, 0.02f);
+						_rates_sp.yaw += generate_gaussian_noise(0.0f, 0.02f);
+
+						PX4_INFO("Noise added");
+					}
 
 					_rates_sp.timestamp = hrt_absolute_time();
 
