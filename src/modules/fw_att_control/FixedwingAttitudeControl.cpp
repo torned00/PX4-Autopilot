@@ -391,8 +391,6 @@ void FixedwingAttitudeControl::Run()
 						_rates_sp.roll += generate_gaussian_noise(0.0f, 0.02f);
 						_rates_sp.pitch += generate_gaussian_noise(0.0f, 0.02f);
 						_rates_sp.yaw += generate_gaussian_noise(0.0f, 0.02f);
-
-						PX4_INFO("Noise added");
 					}
 
 					_rates_sp.timestamp = hrt_absolute_time();
