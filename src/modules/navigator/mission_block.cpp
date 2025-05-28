@@ -113,7 +113,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 	case NAV_CMD_TRANSITION_TO_DESCEND:
 		if (_mission_item.nav_cmd == NAV_CMD_TRANSITION_TO_DESCEND) {
 
-			const float desired_dive_angle_deg = -60.0f; // same as your control function
+			const float desired_dive_angle_deg = -75.0f; // same as your control function
 			const float pitch_tolerance_deg = 5.0f;      // allowable tolerance around target angle
 
 			// Get current vehicle attitude
@@ -140,8 +140,30 @@ MissionBlock::is_mission_item_reached_or_completed()
 		}
 		break;
 
-	case NAV_CMD_STEEP_DESCENT: /* fall through */
-	case NAV_CMD_TARGET_IMPACT: /* fall through */
+	case NAV_CMD_STEEP_DESCENT:
+		if (_mission_item.nav_cmd == NAV_CMD_STEEP_DESCENT) {
+			float dist_xy = -1.0f;
+			float new_radius = 2.0f;
+			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
+					_navigator->get_global_position()->lat,
+					_navigator->get_global_position()->lon);
+
+			PX4_INFO("STEEP_DESCENT: dist_xy=%.2f, impact_radius=%.2f", (double)dist_xy, (double)new_radius);
+			return dist_xy <= new_radius;
+		}
+		break;
+	case NAV_CMD_TARGET_IMPACT:
+		if (_mission_item.nav_cmd == NAV_CMD_TARGET_IMPACT) {
+			float dist_xy = -0.01f;
+			float new_radius = 0.0f;
+			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
+					_navigator->get_global_position()->lat,
+					_navigator->get_global_position()->lon);
+
+			PX4_INFO("IMPACT: dist_xy=%.2f, impact_radius=%.2f", (double)dist_xy, (double)new_radius);
+			return dist_xy <= new_radius;
+		}
+		break;
 	case NAV_CMD_VTOL_LAND:
 		return _navigator->get_land_detected()->landed;
 

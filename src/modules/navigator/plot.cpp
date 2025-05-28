@@ -66,7 +66,7 @@ PLOT::PLOT(Navigator *navigator) :
 
 void PLOT::on_inactivation()
 {
-	_plot_state = PLOTState::IDLE;
+	_plot_state = PLOTState::MOVE_TO_TARGET;
 }
 
 void PLOT::on_inactive()
@@ -125,7 +125,7 @@ void PLOT::on_active()
 
 	parameters_update();
 
-	if (_plot_state != PLOTState::IDLE && is_mission_item_reached_or_completed()) {
+	if (is_mission_item_reached_or_completed()) {
 		_updatePlotState();
 		set_plot_navigator_mission_item();
 	}
@@ -160,7 +160,7 @@ void PLOT::initializePlotDestination()
 
 void PLOT::_updatePlotState()
 {
-	PLOTState new_state{PLOTState::IDLE};
+	PLOTState new_state{PLOTState::MOVE_TO_TARGET};
 
 	switch (_plot_state) {
 
@@ -177,12 +177,10 @@ void PLOT::_updatePlotState()
 		break;
 
 	case PLOTState::TARGET_IMPACT:
-		new_state = PLOTState::IDLE;
+		new_state = PLOTState::TARGET_IMPACT;
 		break;
 
-	case PLOTState::IDLE: // Fallthrough
 	default:
-		new_state = PLOTState::IDLE;
 		break;
 	}
 
@@ -251,13 +249,6 @@ void PLOT::set_plot_navigator_mission_item()
 
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: impact on target\t");
 			events::send(events::ID("plot_impact_on_target"), events::Log::Info, "PLOT: impact on target");
-			break;
-		}
-
-	case PLOTState::IDLE: {
-			PX4_INFO("PLOT State: IDLE");
-			set_idle_item(&_mission_item);
-			_navigator->mode_completed(getNavigatorStateId());
 			break;
 		}
 

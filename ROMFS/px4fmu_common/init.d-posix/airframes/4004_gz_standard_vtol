@@ -79,12 +79,22 @@ param set-default FW_PSP_OFF 2
 param set-default FW_P_LIM_MIN -15
 param set-default FW_RR_FF 0.1
 param set-default FW_RR_P 0.3
-param set-default FW_THR_TRIM 0.25
+param set-default FW_THR_TRIM 0.6
 param set-default FW_THR_MAX 0.6
-param set-default FW_THR_MIN 0.05
+param set-default FW_THR_MIN 0.4
 param set-default FW_T_CLMB_MAX 8
 param set-default FW_T_SINK_MAX 2.7
 param set-default FW_T_SINK_MIN 2.2
+
+param set-default FW_AIRSPD_TRIM 25
+param set-default FW_AIRSPD_MAX 30
+param set-default FW_AIRSPD_MIN 13
+param set-default MPC_TKO_SPEED 5
+
+param set-default VT_ARSP_TRANS 1
+param set-default VT_FW_MIN_ALT 0
+param set-default VT_F_TRANS_DUR 2
+param set-default NAV_LOITER_RAD 500
 
 param set-default MC_AIRMODE 1
 param set-default MC_ROLLRATE_P 0.3
@@ -101,6 +111,6 @@ param set-default NAV_ACC_RAD 5
 param set-default NAV_DLL_ACT 2
 
 param set-default VT_FWD_THRUST_EN 4
-param set-default VT_F_TRANS_THR 0.3
+param set-default VT_F_TRANS_THR 0.6
 param set-default VT_TYPE 2
 param set-default FD_ESCS_EN 0

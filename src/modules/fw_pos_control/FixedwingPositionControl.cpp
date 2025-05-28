@@ -2224,6 +2224,7 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
 	const float acc_rad = _npfg.switchDistance(500.0f);
+	_npfg.setPeriod(28.0f); // shorter period = faster convergence (smaller sideslip angle)
 
 	// Set throttle to zero to enforce gliding
 	const float tecs_fw_thr_min = 0.0;
@@ -2289,7 +2290,7 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 	roll_body = getCorrectedNpfgRollSetpoint();
 	target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
 
-	float yaw_body = atan2f(ground_speed(1), ground_speed(0)); // atan2(vy, vx)
+	float yaw_body = _yaw;
 
 	const bool is_low_height = checkLowHeightConditions();
 
@@ -2305,9 +2306,13 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 				   is_low_height);
 
 	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
+
 	const float pitch_body = get_tecs_pitch();
 	const Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
+
+	// Publish position setpoint for logging purposes
+	publishLocalPositionSetpoint(pos_sp_curr);
 }
 
 void
@@ -2328,8 +2333,8 @@ FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const 
 
 
 	// Parameters for the transition
-	const float transition_duration = 1.0f;  // seconds for pitch-down transition
-	const float dive_angle_deg = -60.0f;     // aggressive dive angle
+	const float transition_duration = 2.5f;  // seconds for pitch-down transition
+	const float dive_angle_deg = -75.0f;     // aggressive dive angle
 	const float dive_angle_rad = math::radians(dive_angle_deg);
 
 	// Time since transition started
@@ -2340,7 +2345,7 @@ FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const 
 	const float pitch_setpoint = initial_pitch + transition_progress * (dive_angle_rad - initial_pitch);
 
 	// Set yaw toward target
-	const float yaw_setpoint = atan2f(ground_speed(1), ground_speed(0)); // atan2(vy, vx)
+	const float yaw_setpoint = _yaw;
 
 	// Set minimal control for roll and yaw
 	navigateWaypoint(curr_wp_local, curr_pos_local, ground_speed, _wind_vel);
@@ -2353,10 +2358,8 @@ FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const 
 
 	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 
-	_att_sp.timestamp = hrt_absolute_time();
-	_attitude_sp_pub.publish(_att_sp);
-
-	status_publish();
+	// Publish position setpoint for logging purposes
+	publishLocalPositionSetpoint(pos_sp_curr);
 
 }
 
@@ -2378,14 +2381,14 @@ FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, con
 	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
 	// Perform lateral guidance to ensure accurate target tracking
-	navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
+	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
 
 	// Get NPFG calculated roll setpoint for lateral guidance
 	float roll_body = getCorrectedNpfgRollSetpoint();
 	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
 
 	// Set and hold aggressive pitch angle for steep descent
-	const float fixed_dive_angle_deg = -60.0f;
+	const float fixed_dive_angle_deg = -75.0f;
 	const float pitch_body = math::radians(fixed_dive_angle_deg);
 
 	// Maintain current yaw for stability
@@ -2397,25 +2400,52 @@ FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, con
 
 	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 
-	// Update attitude setpoint publication
-	_att_sp.timestamp = hrt_absolute_time();
-	_attitude_sp_pub.publish(_att_sp);
 
 	// Publish position setpoint for logging purposes
-	if (!_vehicle_status.in_transition_to_fw) {
-		publishLocalPositionSetpoint(pos_sp_curr);
-	}
+	publishLocalPositionSetpoint(pos_sp_curr);
 
-	// Update landing status (if needed for monitoring)
-	landing_status_publish();
-
-	PX4_INFO("Steep Descend");
 }
 
 void
 FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
+	// Set target airspeed explicitly (use landing or descent airspeed param)
+	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
+					_param_fw_lnd_airspd.get() :
+					_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
+
+	// Retrieve current and target positions
+	const Vector2f local_position{_local_pos.x, _local_pos.y};
+	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+
+	// NPFG setup for lateral guidance to target
+	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
+	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
+
+	// Perform lateral guidance to ensure accurate target tracking
+	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
+
+	// Get NPFG calculated roll setpoint for lateral guidance
+	float roll_body = getCorrectedNpfgRollSetpoint();
+	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
+
+	// Set and hold aggressive pitch angle for steep descent
+	const float fixed_dive_angle_deg = -75.0f;
+	const float pitch_body = math::radians(fixed_dive_angle_deg);
+
+	// Maintain current yaw for stability
+	const float yaw_body = _yaw;
+
+	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
+	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
+	attitude_setpoint.copyTo(_att_sp.q_d);
+
+	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
+
+
+	// Publish position setpoint for logging purposes
+	publishLocalPositionSetpoint(pos_sp_curr);
 
 }
 
