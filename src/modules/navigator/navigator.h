@@ -47,7 +47,7 @@
 #include "loiter.h"
 #include "mission.h"
 #include "navigator_mode.h"
-#include "plot.h"
+#include "falcon.h"
 #include "rtl.h"
 #include "takeoff.h"
 #if CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF
@@ -95,7 +95,7 @@ using namespace time_literals;
 
 /**
  * Number of navigation modes that need on_active/on_inactive calls
- * Prev. 8, but incremented to include PLOT
+ * Prev. 8, but incremented to include FALCON
  */
 #define NAVIGATOR_MODE_ARRAY_SIZE 9
 
@@ -260,8 +260,8 @@ public:
 
 	bool get_mission_start_land_available() { return _mission.get_land_start_available(); }
 
-	// PLOT
-	bool in_plot_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT; }
+	// FALCON
+	bool in_falcon_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON; }
 
 	// RTL
 	bool in_rtl_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL; }
@@ -330,7 +330,7 @@ private:
 	orb_advert_t	_mavlink_log_pub{nullptr};	/**< the uORB advert to send messages over mavlink */
 
 	// Subscriptions
-	home_position_s					_home_pos{};		/**< home position for RTL and PLOT*/
+	home_position_s					_home_pos{};		/**< home position for RTL and FALCON*/
 	mission_result_s				_mission_result{};
 	vehicle_global_position_s			_global_pos{};		/**< global vehicle position */
 	sensor_gps_s					_gps_pos{};		/**< gps position */
@@ -371,7 +371,7 @@ private:
 	VtolTakeoff	_vtol_takeoff;			/**< class for handling VEHICLE_CMD_NAV_VTOL_TAKEOFF command */
 #endif //CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF
 	Land		_land;				/**< class for handling land commands */
-	PLOT		_plot;				/**< class for handling plot commands */
+	FALCON		_falcon;			/**< class for handling falcon commands */
 	PrecLand	_precland;			/**< class for handling precision land commands */
 	RTL 		_rtl;				/**< class that handles RTL */
 #if CONFIG_NAVIGATOR_ADSB

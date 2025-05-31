@@ -31,9 +31,9 @@
  *
  ****************************************************************************/
 /**
- * @file plot.h
+ * @file falcon.h
  *
- * Class for PLOT
+ * Class for FALCON
  *
  * @author Julian Oes <julian@oes.ch>
  * @author Anton Babushkin <anton.babushkin@me.com>
@@ -66,12 +66,12 @@ using namespace time_literals;
 
 class Navigator;
 
-class PLOT : public MissionBlock, public ModuleParams
+class FALCON : public MissionBlock, public ModuleParams
 {
 public:
-	PLOT(Navigator *navigator);
+	FALCON(Navigator *navigator);
 
-	~PLOT() = default;
+	~FALCON() = default;
 	/**
 	 * @brief on inactivation
 	 *
@@ -94,40 +94,40 @@ public:
 
 	/**
 	 * @brief on inactive
-	 * Poll required topics also when incative for plot time estimate.
+	 * Poll required topics also when incative for falcon time estimate.
 	 *
 	 */
 	void on_inactive() override;
 
 	void initialize() override {};
 
-	void initializePlotDestination();
+	void initializeFalconDestination();
 
-	bool isLanding() { return (_plot_state == PLOTState::TARGET_IMPACT || _plot_state == PLOTState::STEEP_DESCENT);};
+	bool isLanding() { return (_falcon_state == FALCONState::IMPACT || _falcon_state == FALCONState::DIVE);};
 
 private:
 	/**
 	 * @brief Return to launch state machine.
 	 *
 	 */
-	enum class PLOTState {
-		MOVE_TO_TARGET,
-		TRANSITION_TO_DESCEND,
-		STEEP_DESCENT,
-		TARGET_IMPACT
-	} _plot_state{PLOTState::MOVE_TO_TARGET}; /*< Current state in the state machine.*/
+	enum class FALCONState {
+		GLIDE,
+		PITCH,
+		DIVE,
+		IMPACT
+	} _falcon_state{FALCONState::GLIDE}; /*< Current state in the state machine.*/
 
 	/**
-	 * @brief Update the PLOT state machine.
+	 * @brief Update the FALCON state machine.
 	 *
 	 */
-	void _updatePlotState();
+	void _updateFalconState();
 
 	/**
 	 * @brief Set the return to launch control setpoint.
 	 *
 	 */
-	void set_plot_navigator_mission_item(); // Consider renaming to make more sense
+	void set_falcon_navigator_mission_item(); // Consider renaming to make more sense
 
 	/**
 	 * Check for parameter changes and update them if needed.
@@ -138,25 +138,20 @@ private:
 	 * @brief Publish navigator mission item
 	 *
 	 */
-	void publish_plot_navigator_mission_item();
+	void publish_falcon_navigator_mission_item();
 
 	hrt_abstime _destination_check_time{0};
 
 	bool _force_heading{false};
 
-	PositionYawSetpoint _destination; ///< the PLOT position to fly to
+	PositionYawSetpoint _destination; ///< the FALCON position to fly to
 
-	float _plot_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
+	float _falcon_alt{0.0f};	///< AMSL altitude at which the vehicle should perform precision landing
 
-	//static constexpr float PLOT_DIVE_ANGLE_DEFAULT = -45.0f;     // degrees
-	//static constexpr float PLOT_DIVE_SPEED_DEFAULT = 20.0f;      // m/s
-	//static constexpr float PLOT_MAX_SPEED_DEFAULT = 30.0f;       // m/s
-	//static constexpr float PLOT_THROTTLE_DEFAULT = 0.0f;         // normalized (0-1)
-	//static constexpr int PLOT_TERM_MANVR_DEFAULT = 0;            // 0=none, 1=pitch down, 2=roll
-	static constexpr float PLOT_DESCENT_RADIUS_DEFAULT = 140.0f;
+	static constexpr float FALCON_DESCENT_RADIUS_DEFAULT = 140.0f;
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_plot_min_dist,
+		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_falcon_min_dist,
 		// external params
 		(ParamBool<px4::params::WV_EN>) 	_param_wv_en
 	)

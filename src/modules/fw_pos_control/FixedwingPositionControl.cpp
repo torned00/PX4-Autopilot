@@ -753,11 +753,11 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_GLIDE) {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_GLIDE;
 		}
-		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN) {
-			_control_mode_current = FW_POSCTRL_MODE_AUTO_PITCH_DOWN;
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_PITCH) {
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_PITCH;
 		}
-		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_DESCEND) {
-			_control_mode_current = FW_POSCTRL_MODE_AUTO_DESCEND;
+		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_DIVE) {
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_DIVE;
 		}
 		else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_IMPACT) {
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_IMPACT;
@@ -2316,7 +2316,7 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 }
 
 void
-FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed, const  position_setpoint_s &pos_sp_curr)
+FixedwingPositionControl::control_auto_pitch(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed, const  position_setpoint_s &pos_sp_curr)
 {
 	static float initial_pitch = NAN;
 	static hrt_abstime start_time = 0;
@@ -2364,7 +2364,7 @@ FixedwingPositionControl::control_auto_pitch_down(const hrt_abstime &now, const 
 }
 
 void
-FixedwingPositionControl::control_auto_steep_descend(const hrt_abstime &now, const float control_interval,
+FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float control_interval,
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
 	// Set target airspeed explicitly (use landing or descent airspeed param)
@@ -2952,13 +2952,13 @@ FixedwingPositionControl::Run()
 				break;
 			}
 
-		case FW_POSCTRL_MODE_AUTO_PITCH_DOWN: {
-				control_auto_pitch_down(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.current);
+		case FW_POSCTRL_MODE_AUTO_PITCH: {
+				control_auto_pitch(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.current);
 				break;
 			}
 
-		case FW_POSCTRL_MODE_AUTO_DESCEND: {
-				control_auto_steep_descend(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
+		case FW_POSCTRL_MODE_AUTO_DIVE: {
+				control_auto_dive(_local_pos.timestamp, control_interval, ground_speed, _pos_sp_triplet.previous,
 							      _pos_sp_triplet.current);
 				break;
 			}

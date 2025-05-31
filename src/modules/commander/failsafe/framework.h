@@ -65,7 +65,7 @@ public:
 		Descend,
 		Disarm,
 		Terminate,
-		PLOT,
+		FALCON,
 
 		Count
 	};
@@ -114,7 +114,7 @@ public:
 
 		case Action::Terminate: return "Terminate";
 
-		case Action::PLOT: return "PLOT";
+		case Action::FALCON: return "FALCON";
 
 		case Action::Count:
 		default: return "(invalid)";

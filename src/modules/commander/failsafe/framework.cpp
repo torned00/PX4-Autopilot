@@ -561,9 +561,9 @@ void FailsafeBase::getSelectedAction(const State &state, const failsafe_flags_s 
 		returned_state.cause = Cause::Generic;
 
 	// fallthrough
-	case Action::PLOT:
-		if (modeCanRun(status_flags, vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT)) {
-			selected_action = Action::PLOT;
+	case Action::FALCON:
+		if (modeCanRun(status_flags, vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON)) {
+			selected_action = Action::FALCON;
 			break;
 		}
 
@@ -621,10 +621,10 @@ void FailsafeBase::getSelectedAction(const State &state, const failsafe_flags_s 
 		}
 	}
 
-	// If already in PLOT, do not go into PLOT again (would cause a Hold delay first, then re-start PLOT)
-	if (returned_state.updated_user_intended_mode == vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT) {
-		if ((selected_action == Action::PLOT || returned_state.delayed_action == Action::PLOT)
-		    && modeCanRun(status_flags, vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT)) {
+	// If already in FALCON, do not go into FALCON again (would cause a Hold delay first, then re-start FALCON)
+	if (returned_state.updated_user_intended_mode == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON) {
+		if ((selected_action == Action::FALCON || returned_state.delayed_action == Action::FALCON)
+		    && modeCanRun(status_flags, vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON)) {
 			selected_action = Action::Warn;
 			returned_state.delayed_action = Action::None;
 		}
@@ -653,7 +653,7 @@ void FailsafeBase::getSelectedAction(const State &state, const failsafe_flags_s 
 bool FailsafeBase::actionAllowsUserTakeover(Action action) const
 {
 	// Stick-controlled modes do not need user takeover
-	return action == Action::Hold || action == Action::PLOT || action == Action::RTL || action == Action::Land || action == Action::Descend;
+	return action == Action::Hold || action == Action::FALCON || action == Action::RTL || action == Action::Land || action == Action::Descend;
 }
 
 void FailsafeBase::clearDelayIfNeeded(const State &state,
@@ -685,7 +685,7 @@ uint8_t FailsafeBase::modeFromAction(const Action &action, uint8_t user_intended
 
 	case Action::Hold: return vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER;
 
-	case Action::PLOT: return vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT;
+	case Action::FALCON: return vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON;
 
 	case Action::RTL: return vehicle_status_s::NAVIGATION_STATE_AUTO_RTL;
 

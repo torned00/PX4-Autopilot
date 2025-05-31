@@ -60,7 +60,7 @@ static inline navigation_mode_t navigation_mode(uint8_t nav_state)
 
 	case vehicle_status_s::NAVIGATION_STATE_POSITION_SLOW: return navigation_mode_t::position_slow;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT: return navigation_mode_t::auto_plot;
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON: return navigation_mode_t::auto_falcon;
 
 	case vehicle_status_s::NAVIGATION_STATE_ACRO: return navigation_mode_t::acro;
 

@@ -76,8 +76,8 @@
                             "description": "RTL"
                         },
                         "128": {
-				"name": "plot",
-				"description": "PLOT"
+				"name": "falcon",
+				"description": "FALCON"
 			    },
                         "1024": {
                             "name": "acro",
@@ -441,8 +441,8 @@
                             "description": "terminate"
                         },
                         "11": {
-				"name": "plot",
-				"description": "PLOT"
+				"name": "falcon",
+				"description": "FALCON"
 			    }
                     }
                 },
@@ -613,9 +613,9 @@
                             "description": "External 8"
                         },
                         "24": {
-				"name": "auto_plot",
-				"description": "PLOT"
-			    },
+                            "name": "auto_falcon",
+                            "description": "FALCON"
+                        },
                         "255": {
                             "name": "unknown",
                             "description": "[Unknown]"

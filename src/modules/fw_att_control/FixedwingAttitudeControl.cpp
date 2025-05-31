@@ -386,7 +386,7 @@ void FixedwingAttitudeControl::Run()
 					_rates_sp.pitch = body_rates_setpoint(1);
 					_rates_sp.yaw = body_rates_setpoint(2);
 
-					if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT)
+					if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON)
 					{
 						_rates_sp.roll += generate_gaussian_noise(0.0f, 0.02f);
 						_rates_sp.pitch += generate_gaussian_noise(0.0f, 0.02f);

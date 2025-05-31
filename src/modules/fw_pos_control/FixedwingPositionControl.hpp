@@ -265,8 +265,8 @@ private:
 		FW_POSCTRL_MODE_TRANSITION_TO_HOVER_HEADING_HOLD,
 		FW_POSCTRL_MODE_OTHER,
 		FW_POSCTRL_MODE_AUTO_GLIDE,
-		FW_POSCTRL_MODE_AUTO_PITCH_DOWN,
-		FW_POSCTRL_MODE_AUTO_DESCEND,
+		FW_POSCTRL_MODE_AUTO_PITCH,
+		FW_POSCTRL_MODE_AUTO_DIVE,
 		FW_POSCTRL_MODE_AUTO_IMPACT
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER}; // used to check if the mode has changed
 
@@ -721,7 +721,7 @@ private:
 	 * @param control_interval Time since the last position control update [s]
 
 	 */
-	void control_auto_pitch_down(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+	void control_auto_pitch(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_curr);
 	/**
 	 * @brief Controls automatic descend for steep descent.
@@ -735,7 +735,7 @@ private:
 	 * @param pos_sp_prev previous position setpoint
 	 * @param pos_sp_curr current position setpoint
 	 */
-	void control_auto_steep_descend(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
+	void control_auto_dive(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 
 

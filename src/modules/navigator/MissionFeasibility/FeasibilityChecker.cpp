@@ -249,10 +249,10 @@ bool FeasibilityChecker::checkMissionItemValidity(mission_item_s &mission_item, 
 	    mission_item.nav_cmd != NAV_CMD_LOITER_TIME_LIMIT &&
 	    mission_item.nav_cmd != NAV_CMD_RETURN_TO_LAUNCH &&
 	    mission_item.nav_cmd != NAV_CMD_LAND &&
-	    mission_item.nav_cmd != NAV_CMD_GLIDE_TO_TARGET &&
-	    mission_item.nav_cmd != NAV_CMD_TRANSITION_TO_DESCEND &&
-	    mission_item.nav_cmd != NAV_CMD_STEEP_DESCENT &&
-	    mission_item.nav_cmd != NAV_CMD_TARGET_IMPACT &&
+	    mission_item.nav_cmd != NAV_CMD_GLIDE &&
+	    mission_item.nav_cmd != NAV_CMD_PITCH &&
+	    mission_item.nav_cmd != NAV_CMD_DIVE &&
+	    mission_item.nav_cmd != NAV_CMD_IMPACT &&
 	    mission_item.nav_cmd != NAV_CMD_TAKEOFF &&
 	    mission_item.nav_cmd != NAV_CMD_LOITER_TO_ALT &&
 	    mission_item.nav_cmd != NAV_CMD_VTOL_TAKEOFF &&

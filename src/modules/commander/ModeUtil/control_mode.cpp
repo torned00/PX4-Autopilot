@@ -84,7 +84,7 @@ void getVehicleControlMode(uint8_t nav_state, uint8_t vehicle_type,
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT:
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:

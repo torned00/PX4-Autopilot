@@ -31,9 +31,9 @@
  *
  ****************************************************************************/
 /**
- * @file plot.cpp
+ * @file falcon.cpp
  *
- * Class to access PLOT
+ * Class to access FALCON
  *
  * @author Julian Oes <julian@oes.ch>
  * @author Anton Babushkin <anton.babushkin@me.com>
@@ -43,7 +43,7 @@
 
 #include <float.h>
 
-#include "plot.h"
+#include "falcon.h"
 #include "navigator.h"
 
 #include <drivers/drv_hrt.h>
@@ -55,8 +55,8 @@ using namespace time_literals;
 using namespace math;
 using matrix::wrap_pi;
 
-PLOT::PLOT(Navigator *navigator) :
-	MissionBlock(navigator, vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT),
+FALCON::FALCON(Navigator *navigator) :
+	MissionBlock(navigator, vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON),
 	ModuleParams(navigator)
 {
 	_destination.lat = static_cast<double>(NAN);
@@ -64,12 +64,12 @@ PLOT::PLOT(Navigator *navigator) :
 
 }
 
-void PLOT::on_inactivation()
+void FALCON::on_inactivation()
 {
-	_plot_state = PLOTState::MOVE_TO_TARGET;
+	_falcon_state = FALCONState::GLIDE;
 }
 
-void PLOT::on_inactive()
+void FALCON::on_inactive()
 {
 	_global_pos_sub.update();
 	_vehicle_status_sub.update();
@@ -83,14 +83,14 @@ void PLOT::on_inactive()
 
 	if ((now - _destination_check_time) > 2_s) {
 		_destination_check_time = now;
-		initializePlotDestination();
+		initializeFalconDestination();
 	}
 
 }
 
-void PLOT::on_activation()
+void FALCON::on_activation()
 {
-	initializePlotDestination();
+	initializeFalconDestination();
 
 	_global_pos_sub.update();
 	_vehicle_status_sub.update();
@@ -98,25 +98,25 @@ void PLOT::on_activation()
 
 	parameters_update();
 
-	_plot_state = PLOTState::MOVE_TO_TARGET;
+	_falcon_state = FALCONState::GLIDE;
 
-	// reset cruising speed and throttle to default for PLOT
+	// reset cruising speed and throttle to default for FALCON
 	_navigator->reset_cruising_speed();
 	_navigator->set_cruising_throttle();
 
-	set_plot_navigator_mission_item();
+	set_falcon_navigator_mission_item();
 
-	mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: start glide at %d m (%d m above destination)\t",
-			 (int)ceilf(_plot_alt), (int)ceilf(_plot_alt - _destination.alt));
-	events::send<int32_t, int32_t>(events::ID("plot_glide_to_target"), events::Log::Info,
-				       "PLOT: start glide at {1m_v} ({2m_v} above destination)",
-				       (int32_t)ceilf(_plot_alt), (int32_t)ceilf(_plot_alt - _destination.alt));
+	mavlink_log_info(_navigator->get_mavlink_log_pub(), "FALCON: start glide at %d m (%d m above destination)\t",
+			 (int)ceilf(_falcon_alt), (int)ceilf(_falcon_alt - _destination.alt));
+	events::send<int32_t, int32_t>(events::ID("falcon_glide"), events::Log::Info,
+				       "FALCON: start glide at {1m_v} ({2m_v} above destination)",
+				       (int32_t)ceilf(_falcon_alt), (int32_t)ceilf(_falcon_alt - _destination.alt));
 
 
 
 }
 
-void PLOT::on_active()
+void FALCON::on_active()
 {
 	_global_pos_sub.update();
 	_vehicle_status_sub.update();
@@ -126,14 +126,14 @@ void PLOT::on_active()
 	parameters_update();
 
 	if (is_mission_item_reached_or_completed()) {
-		_updatePlotState();
-		set_plot_navigator_mission_item();
+		_updateFalconState();
+		set_falcon_navigator_mission_item();
 	}
 
 
 }
 
-void PLOT::initializePlotDestination()
+void FALCON::initializeFalconDestination()
 {
 	if (isActive()) {
 		// Already in motion, no changes allowed
@@ -150,74 +150,74 @@ void PLOT::initializePlotDestination()
 
 	// Optional: fallback sanity check
 	if (!PX4_ISFINITE(_destination.lat) || !PX4_ISFINITE(_destination.lon)) {
-		PX4_WARN("PLOT: Home position invalid, cannot set destination");
+		PX4_WARN("FALCON: Home position invalid, cannot set destination");
 	}
 
-	_plot_alt = _global_pos_sub.get().alt;
+	_falcon_alt = _global_pos_sub.get().alt;
 
 	_force_heading = false;
 }
 
-void PLOT::_updatePlotState()
+void FALCON::_updateFalconState()
 {
-	PLOTState new_state{PLOTState::MOVE_TO_TARGET};
+	FALCONState new_state{FALCONState::GLIDE};
 
-	switch (_plot_state) {
+	switch (_falcon_state) {
 
-	case PLOTState::MOVE_TO_TARGET:
-		new_state = PLOTState::TRANSITION_TO_DESCEND;
+	case FALCONState::GLIDE:
+		new_state = FALCONState::PITCH;
 		break;
 
-	case PLOTState::TRANSITION_TO_DESCEND:
-		new_state = PLOTState::STEEP_DESCENT;
+	case FALCONState::PITCH:
+		new_state = FALCONState::DIVE;
 		break;
 
-	case PLOTState::STEEP_DESCENT:
-		new_state = PLOTState::TARGET_IMPACT;
+	case FALCONState::DIVE:
+		new_state = FALCONState::IMPACT;
 		break;
 
-	case PLOTState::TARGET_IMPACT:
-		new_state = PLOTState::TARGET_IMPACT;
+	case FALCONState::IMPACT:
+		new_state = FALCONState::IMPACT;
 		break;
 
 	default:
 		break;
 	}
 
-	_plot_state = new_state;
+	_falcon_state = new_state;
 }
 
-void PLOT::set_plot_navigator_mission_item()
+void FALCON::set_falcon_navigator_mission_item()
 {
 	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
 	const float destination_dist = get_distance_to_next_waypoint(_destination.lat, _destination.lon,
 				       _global_pos_sub.get().lat, _global_pos_sub.get().lon);
 
-	const bool is_close_to_destination = destination_dist < _param_plot_min_dist.get();
+	const bool is_close_to_destination = destination_dist < _param_falcon_min_dist.get();
 
 	float altitude_acceptance_radius = static_cast<float>(NAN);
 
-	switch (_plot_state) {
+	switch (_falcon_state) {
 
-	case PLOTState::MOVE_TO_TARGET: {
-			PX4_INFO("PLOT State: MOVE_TO_TARGET");
+	case FALCONState::GLIDE: {
+			PX4_INFO("Falcon: Glides");
 
 			PositionYawSetpoint pos_yaw_sp {
 				.lat = _destination.lat,
 				.lon = _destination.lon,
-				.alt = _plot_alt,
+				.alt = _falcon_alt,
 			};
 
 			// already set final yaw if close to destination and weather vane is disabled
 			pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
-			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, PLOT_DESCENT_RADIUS_DEFAULT);
+			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, FALCON_DESCENT_RADIUS_DEFAULT);
 
 			break;
 		}
 
-	case PLOTState::TRANSITION_TO_DESCEND: {
-			PX4_INFO("PLOT State: TRANSITION_TO_DESCEND");
+	case FALCONState::PITCH: {
+			PX4_INFO("Falcon: Pitches");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
 			setTransitionToDescendMissionItem(_mission_item, pos_yaw_sp);
@@ -225,8 +225,8 @@ void PLOT::set_plot_navigator_mission_item()
 			break;
 		}
 
-	case PLOTState::STEEP_DESCENT: {
-			PX4_INFO("PLOT State: STEEP_DESCENT");
+	case FALCONState::DIVE: {
+			PX4_INFO("Falcon: Dives");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
 			const float descent_buffer = 2.0f; // Small buffer in meters above target
@@ -239,16 +239,16 @@ void PLOT::set_plot_navigator_mission_item()
 			break;
 		}
 
-	case PLOTState::TARGET_IMPACT: {
-			PX4_INFO("PLOT State: TARGET_IMPACT");
+	case FALCONState::IMPACT: {
+			PX4_INFO("Falcon: Impact");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 			setTargetImpactMissionItem(_mission_item, pos_yaw_sp);
 
 
-			mavlink_log_info(_navigator->get_mavlink_log_pub(), "PLOT: impact on target\t");
-			events::send(events::ID("plot_impact_on_target"), events::Log::Info, "PLOT: impact on target");
+			mavlink_log_info(_navigator->get_mavlink_log_pub(), "FALCON: impact on target\t");
+			events::send(events::ID("falcon_impact_on_target"), events::Log::Info, "FALCON: impact on target");
 			break;
 		}
 
@@ -270,10 +270,10 @@ void PLOT::set_plot_navigator_mission_item()
 		}
 	}
 
-	publish_plot_navigator_mission_item(); // for logging
+	publish_falcon_navigator_mission_item(); // for logging
 }
 
-void PLOT::parameters_update()
+void FALCON::parameters_update()
 {
 	if (_parameter_update_sub.updated()) {
 		parameter_update_s param_update;
@@ -285,11 +285,11 @@ void PLOT::parameters_update()
 	}
 }
 
-void PLOT::publish_plot_navigator_mission_item()
+void FALCON::publish_falcon_navigator_mission_item()
 {
 	navigator_mission_item_s navigator_mission_item{};
 
-	navigator_mission_item.sequence_current = static_cast<uint16_t>(_plot_state);
+	navigator_mission_item.sequence_current = static_cast<uint16_t>(_falcon_state);
 	navigator_mission_item.nav_cmd = _mission_item.nav_cmd;
 	navigator_mission_item.latitude = _mission_item.lat;
 	navigator_mission_item.longitude = _mission_item.lon;

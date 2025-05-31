@@ -79,7 +79,7 @@ Navigator::Navigator() :
 	_vtol_takeoff(this),
 #endif //CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF
 	_land(this),
-	_plot(this),
+	_falcon(this),
 	_precland(this),
 	_rtl(this)
 {
@@ -93,7 +93,7 @@ Navigator::Navigator() :
 #if CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF
 	_navigation_mode_array[6] = &_vtol_takeoff;
 #endif //CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF
-	_navigation_mode_array[7] = &_plot;
+	_navigation_mode_array[7] = &_falcon;
 	/* iterate through navigation modes and initialize _mission_item for each */
 	for (unsigned int i = 0; i < NAVIGATOR_MODE_ARRAY_SIZE; i++) {
 		if (_navigation_mode_array[i]) {
@@ -778,9 +778,9 @@ void Navigator::run()
 			navigation_mode_new = &_loiter;
 			break;
 
-		case vehicle_status_s::NAVIGATION_STATE_AUTO_PLOT:
+		case vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON:
 			_pos_sp_triplet_published_invalid_once = false;
-			navigation_mode_new = &_plot;
+			navigation_mode_new = &_falcon;
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
@@ -1496,8 +1496,8 @@ void Navigator::publish_vehicle_cmd(vehicle_command_s *vcmd)
 
 void Navigator::publish_distance_sensor_mode_request()
 {
-	// Send request to enable distance sensor when in the landing phase of a mission or RTL or PLOT
-	if (((_navigation_mode == &_rtl) && _rtl.isLanding()) || ((_navigation_mode == &_mission) && _mission.isLanding()) || ((_navigation_mode == &_plot) && _plot.isLanding())){
+	// Send request to enable distance sensor when in the landing phase of a mission or RTL or FALCON
+	if (((_navigation_mode == &_rtl) && _rtl.isLanding()) || ((_navigation_mode == &_mission) && _mission.isLanding()) || ((_navigation_mode == &_falcon) && _falcon.isLanding())){
 
 		if (_distance_sensor_mode_change_request_pub.get().request_on_off !=
 		    distance_sensor_mode_change_request_s::REQUEST_ON) {
@@ -1650,7 +1650,7 @@ int Navigator::print_usage(const char *reason)
 		R"DESCR_STR(
 ### Description
 Module that is responsible for autonomous flight modes. This includes missions (read from dataman),
-takeoff, RTL and PLOT.
+takeoff, RTL and FALCON.
 It is also responsible for geofence violation checking.
 
 ### Implementation

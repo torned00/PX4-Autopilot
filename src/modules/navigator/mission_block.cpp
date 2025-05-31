@@ -99,19 +99,19 @@ MissionBlock::is_mission_item_reached_or_completed()
 
 	// Indefinite Waypoints
 	case NAV_CMD_LAND: /* fall through */
-	case NAV_CMD_GLIDE_TO_TARGET:
-		if (_mission_item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET) {
+	case NAV_CMD_GLIDE:
+		if (_mission_item.nav_cmd == NAV_CMD_GLIDE) {
 			float dist_xy = -1.0f;
 			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
 					_navigator->get_global_position()->lat,
 					_navigator->get_global_position()->lon);
 
-			PX4_INFO("GLIDE_TO_TARGET: dist_xy=%.2f, loiter_radius=%.2f", (double)dist_xy, (double)_mission_item.loiter_radius);
+			PX4_INFO("GLIDE: dist_xy=%.2f, loiter_radius=%.2f", (double)dist_xy, (double)_mission_item.loiter_radius);
 			return dist_xy <= _mission_item.loiter_radius;
 		}
 		break;
-	case NAV_CMD_TRANSITION_TO_DESCEND:
-		if (_mission_item.nav_cmd == NAV_CMD_TRANSITION_TO_DESCEND) {
+	case NAV_CMD_PITCH:
+		if (_mission_item.nav_cmd == NAV_CMD_PITCH) {
 
 			const float desired_dive_angle_deg = -75.0f; // same as your control function
 			const float pitch_tolerance_deg = 5.0f;      // allowable tolerance around target angle
@@ -129,7 +129,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 				// Check if current pitch is within tolerance
 				bool pitch_reached = current_pitch_deg <= (desired_dive_angle_deg + pitch_tolerance_deg);
 
-				PX4_INFO("TRANSITION_TO_DESCEND: current_pitch=%.2f deg, target_pitch=%.2f deg",
+				PX4_INFO("PITCH: current_pitch=%.2f deg, target_pitch=%.2f deg",
 				         (double)current_pitch_deg, (double)desired_dive_angle_deg);
 
 				return pitch_reached;
@@ -140,20 +140,20 @@ MissionBlock::is_mission_item_reached_or_completed()
 		}
 		break;
 
-	case NAV_CMD_STEEP_DESCENT:
-		if (_mission_item.nav_cmd == NAV_CMD_STEEP_DESCENT) {
+	case NAV_CMD_DIVE:
+		if (_mission_item.nav_cmd == NAV_CMD_DIVE) {
 			float dist_xy = -1.0f;
 			float new_radius = 2.0f;
 			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
 					_navigator->get_global_position()->lat,
 					_navigator->get_global_position()->lon);
 
-			PX4_INFO("STEEP_DESCENT: dist_xy=%.2f, impact_radius=%.2f", (double)dist_xy, (double)new_radius);
+			PX4_INFO("DIVE: dist_xy=%.2f, impact_radius=%.2f", (double)dist_xy, (double)new_radius);
 			return dist_xy <= new_radius;
 		}
 		break;
-	case NAV_CMD_TARGET_IMPACT:
-		if (_mission_item.nav_cmd == NAV_CMD_TARGET_IMPACT) {
+	case NAV_CMD_IMPACT:
+		if (_mission_item.nav_cmd == NAV_CMD_IMPACT) {
 			float dist_xy = -0.01f;
 			float new_radius = 0.0f;
 			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
@@ -657,10 +657,10 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_LOITER_UNLIMITED ||
 	       item.nav_cmd == NAV_CMD_LOITER_TIME_LIMIT ||
 	       item.nav_cmd == NAV_CMD_LAND ||
-	       item.nav_cmd == NAV_CMD_GLIDE_TO_TARGET ||
-	       item.nav_cmd == NAV_CMD_TRANSITION_TO_DESCEND ||
-	       item.nav_cmd == NAV_CMD_STEEP_DESCENT ||
-	       item.nav_cmd == NAV_CMD_TARGET_IMPACT ||
+	       item.nav_cmd == NAV_CMD_GLIDE ||
+	       item.nav_cmd == NAV_CMD_PITCH ||
+	       item.nav_cmd == NAV_CMD_DIVE ||
+	       item.nav_cmd == NAV_CMD_IMPACT ||
 	       item.nav_cmd == NAV_CMD_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_LOITER_TO_ALT ||
 	       item.nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
@@ -740,16 +740,16 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 
 	case NAV_CMD_LAND:
 
-	case NAV_CMD_GLIDE_TO_TARGET:
+	case NAV_CMD_GLIDE:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_GLIDE;
 		break;
-	case NAV_CMD_TRANSITION_TO_DESCEND:
-		sp->type = position_setpoint_s::SETPOINT_TYPE_PITCH_DOWN;
+	case NAV_CMD_PITCH:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_PITCH;
 		break;
-	case NAV_CMD_STEEP_DESCENT:
-		sp->type = position_setpoint_s::SETPOINT_TYPE_DESCEND;
+	case NAV_CMD_DIVE:
+		sp->type = position_setpoint_s::SETPOINT_TYPE_DIVE;
 		break;
-	case NAV_CMD_TARGET_IMPACT:
+	case NAV_CMD_IMPACT:
 		sp->type = position_setpoint_s::SETPOINT_TYPE_IMPACT;
 		break;
 
@@ -1059,7 +1059,7 @@ void MissionBlock::setLandMissionItem(mission_item_s &item, const PositionYawSet
 void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const
 {
 
-	item.nav_cmd = NAV_CMD_GLIDE_TO_TARGET;
+	item.nav_cmd = NAV_CMD_GLIDE;
 
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
@@ -1078,7 +1078,7 @@ void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const Posit
 
 void MissionBlock::setTransitionToDescendMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
-	item.nav_cmd = NAV_CMD_TRANSITION_TO_DESCEND;
+	item.nav_cmd = NAV_CMD_PITCH;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;
@@ -1095,7 +1095,7 @@ void MissionBlock::setTransitionToDescendMissionItem(mission_item_s &item, const
 
 void MissionBlock::setSteepDescentMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
-	item.nav_cmd = NAV_CMD_STEEP_DESCENT;
+	item.nav_cmd = NAV_CMD_DIVE;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;
@@ -1112,7 +1112,7 @@ void MissionBlock::setSteepDescentMissionItem(mission_item_s &item, const Positi
 
 void MissionBlock::setTargetImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
-	item.nav_cmd = NAV_CMD_TARGET_IMPACT;
+	item.nav_cmd = NAV_CMD_IMPACT;
 	item.lat = pos_yaw_sp.lat;
 	item.lon = pos_yaw_sp.lon;
 	item.altitude = pos_yaw_sp.alt;
