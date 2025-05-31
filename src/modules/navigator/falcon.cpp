@@ -211,7 +211,7 @@ void FALCON::set_falcon_navigator_mission_item()
 
 			// already set final yaw if close to destination and weather vane is disabled
 			pos_yaw_sp.yaw = (is_close_to_destination && !_param_wv_en.get()) ? _destination.yaw : NAN;
-			setGlideToTargetMissionItem(_mission_item, pos_yaw_sp, FALCON_DESCENT_RADIUS_DEFAULT);
+			setGlideMissionItem(_mission_item, pos_yaw_sp, FALCON_DESCENT_RADIUS_DEFAULT);
 
 			break;
 		}
@@ -220,7 +220,7 @@ void FALCON::set_falcon_navigator_mission_item()
 			PX4_INFO("Falcon: Pitches");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
-			setTransitionToDescendMissionItem(_mission_item, pos_yaw_sp);
+			setPitchMissionItem(_mission_item, pos_yaw_sp);
 
 			break;
 		}
@@ -229,12 +229,12 @@ void FALCON::set_falcon_navigator_mission_item()
 			PX4_INFO("Falcon: Dives");
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
-			const float descent_buffer = 2.0f; // Small buffer in meters above target
-			pos_yaw_sp.alt = _destination.alt + descent_buffer;
+			const float dive_buffer = 2.0f; // Small buffer in meters above target
+			pos_yaw_sp.alt = _destination.alt + dive_buffer;
 
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
 
-			setSteepDescentMissionItem(_mission_item, pos_yaw_sp);
+			setDiveMissionItem(_mission_item, pos_yaw_sp);
 
 			break;
 		}
@@ -244,11 +244,11 @@ void FALCON::set_falcon_navigator_mission_item()
 			PositionYawSetpoint pos_yaw_sp{_destination};
 
 			pos_yaw_sp.yaw = !_param_wv_en.get() ? _destination.yaw : NAN; // set final yaw if weather vane is disabled
-			setTargetImpactMissionItem(_mission_item, pos_yaw_sp);
+			setImpactMissionItem(_mission_item, pos_yaw_sp);
 
 
-			mavlink_log_info(_navigator->get_mavlink_log_pub(), "FALCON: impact on target\t");
-			events::send(events::ID("falcon_impact_on_target"), events::Log::Info, "FALCON: impact on target");
+			mavlink_log_info(_navigator->get_mavlink_log_pub(), "FALCON: impact\t");
+			events::send(events::ID("falcon_impact"), events::Log::Info, "FALCON: impact");
 			break;
 		}
 

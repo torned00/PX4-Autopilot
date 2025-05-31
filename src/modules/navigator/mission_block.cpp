@@ -1056,7 +1056,7 @@ void MissionBlock::setLandMissionItem(mission_item_s &item, const PositionYawSet
 }
 
 
-void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const
+void MissionBlock::setGlideMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const
 {
 
 	item.nav_cmd = NAV_CMD_GLIDE;
@@ -1076,7 +1076,7 @@ void MissionBlock::setGlideToTargetMissionItem(mission_item_s &item, const Posit
 	item.loiter_radius = entry_radius;
 }
 
-void MissionBlock::setTransitionToDescendMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+void MissionBlock::setPitchMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
 	item.nav_cmd = NAV_CMD_PITCH;
 	item.lat = pos_yaw_sp.lat;
@@ -1093,7 +1093,7 @@ void MissionBlock::setTransitionToDescendMissionItem(mission_item_s &item, const
 
 }
 
-void MissionBlock::setSteepDescentMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+void MissionBlock::setDiveMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
 	item.nav_cmd = NAV_CMD_DIVE;
 	item.lat = pos_yaw_sp.lat;
@@ -1110,7 +1110,7 @@ void MissionBlock::setSteepDescentMissionItem(mission_item_s &item, const Positi
 
 }
 
-void MissionBlock::setTargetImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
+void MissionBlock::setImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const
 {
 	item.nav_cmd = NAV_CMD_IMPACT;
 	item.lat = pos_yaw_sp.lat;

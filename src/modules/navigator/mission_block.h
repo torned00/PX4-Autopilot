@@ -204,13 +204,13 @@ protected:
 
 	void setLandMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
-	void setGlideToTargetMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const;
+	void setGlideMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp, float entry_radius) const;
 
-	void setTransitionToDescendMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+	void setPitchMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
-	void setSteepDescentMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+	void setDiveMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
-	void setTargetImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
+	void setImpactMissionItem(mission_item_s &item, const PositionYawSetpoint &pos_yaw_sp) const;
 
 	void startPrecLand(uint16_t land_precision);
 	void updateAltToAvoidTerrainCollisionAndRepublishTriplet(mission_item_s mission_item);
