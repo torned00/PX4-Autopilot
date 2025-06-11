@@ -26,12 +26,14 @@ echo "Initializing submodules..."
 git submodule init
 
 echo "Updating submodules..."
-git submodule update
+git submodule update 
 
 echo "Displaying submodule status..."
 git submodule status
 
+echo "Update again..."
+git submodule update --init --recursive
+
 echo "Run program..."
 make px4_sitl
-
 
