@@ -101,13 +101,32 @@ MissionBlock::is_mission_item_reached_or_completed()
 	case NAV_CMD_LAND: /* fall through */
 	case NAV_CMD_GLIDE:
 		if (_mission_item.nav_cmd == NAV_CMD_GLIDE) {
+
 			float dist_xy = -1.0f;
+			float dist_z = -1.0f;
+			float state_cond_angle_rad = -1.0f;
+
+			// FALCON_DIVE param
+			const float ground_angle_cond =_navigator->falcon_dive_cond();
+
+		        // dist xy and z from target
 			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
 					_navigator->get_global_position()->lat,
 					_navigator->get_global_position()->lon);
 
-			PX4_INFO("GLIDE: dist_xy=%.2f, loiter_radius=%.2f", (double)dist_xy, (double)_mission_item.loiter_radius);
-			return dist_xy <= _mission_item.loiter_radius;
+			dist_z = _navigator->get_global_position()->alt;
+
+			// calculate ground angle
+			state_cond_angle_rad = -atanf(dist_z / dist_xy);
+			float state_cond_deg = math::degrees(state_cond_angle_rad);
+
+			// when ground angle is greater than ground_angle_cond -> advance to DIVE
+			if(state_cond_deg < -ground_angle_cond){
+				return true;
+			}
+			else {
+				return false;
+			}
 		}
 		break;
 	case NAV_CMD_PITCH:

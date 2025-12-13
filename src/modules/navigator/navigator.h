@@ -299,6 +299,10 @@ public:
 
 	void trigger_hagl_failsafe(uint8_t nav_state);
 
+	// FALCON conditions
+	float falcon_init_cond()   const { return _param_falcon_init.get(); }
+    	float falcon_dive_cond() const {return _param_falcon_dive.get(); }
+
 private:
 
 	int _local_pos_sub{-1};
@@ -432,6 +436,8 @@ private:
 		(ParamFloat<px4::params::NAV_MIN_LTR_ALT>)   _param_min_ltr_alt,	/**< minimum altitude in Loiter mode*/
 		(ParamFloat<px4::params::NAV_MIN_GND_DIST>)
 		_param_nav_min_gnd_dist,	/**< minimum distance to ground (Mission and RTL)*/
+		(ParamFloat<px4::params::FALCON_INIT>) _param_falcon_init, /*Not in use yet*/
+		(ParamFloat<px4::params::FALCON_DIVE>) _param_falcon_dive, /*Angle condition to switch to DIVE state*/
 
 		// non-navigator parameters: Mission (MIS_*)
 		(ParamFloat<px4::params::MIS_TAKEOFF_ALT>)    _param_mis_takeoff_alt,

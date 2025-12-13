@@ -68,7 +68,7 @@ PARAM_DEFINE_FLOAT(FW_R_TC, 0.4f);
  * @increment 0.05
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_P_TC, 0.4f);
+PARAM_DEFINE_FLOAT(FW_P_TC, 0.3f);
 
 /**
  * Maximum positive / up pitch rate setpoint

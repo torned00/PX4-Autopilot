@@ -2294,18 +2294,27 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 
 	const bool is_low_height = checkLowHeightConditions();
 
+	// TESTING CESSNA
+	// Cessna target arispeed 15m/s, cant keep it if sinkrate =2m/s
+	// Try sinkrate = 4
+	float sinkrate = 4.0f;
+
+	// must be changed to not get "failsafe activated"
+	float pitch_lim_min = radians(-89.0f);
+
 	tecs_update_pitch_throttle(control_interval,
 				   position_sp_alt,
 				   target_airspeed,
-				   radians(_param_fw_p_lim_min.get()),
+				   pitch_lim_min,
 				   radians(_param_fw_p_lim_max.get()),
 				   tecs_fw_thr_min,
 				   tecs_fw_thr_max,
-				   _param_sinkrate_target.get(),
+				   sinkrate,
 				   _param_climbrate_target.get(),
 				   is_low_height);
 
 	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
+
 
 	const float pitch_body = get_tecs_pitch();
 	const Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
@@ -2363,36 +2372,127 @@ FixedwingPositionControl::control_auto_pitch(const hrt_abstime &now, const float
 
 }
 
+/*Starts PROPNAV towards target with NPFG lateral control*/
+
 void
 FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float control_interval,
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
+
 	// Set target airspeed explicitly (use landing or descent airspeed param)
 	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
 					_param_fw_lnd_airspd.get() :
 					_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
 
+
 	// Retrieve current and target positions
 	const Vector2f local_position{_local_pos.x, _local_pos.y};
 	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
 
-	// NPFG setup for lateral guidance to target
-	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
-	// Perform lateral guidance to ensure accurate target tracking
-	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
+	// -------------------- PROPNAV -----------------------------------------------
 
-	// Get NPFG calculated roll setpoint for lateral guidance
-	float roll_body = getCorrectedNpfgRollSetpoint();
-	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
+	vehicle_global_position_s gpos;
 
-	// Set and hold aggressive pitch angle for steep descent
-	const float fixed_dive_angle_deg = -75.0f;
-	const float pitch_body = math::radians(fixed_dive_angle_deg);
+	float local_z = _local_pos.z;
+	float dist_z = local_z;
+
+	const float vx = _local_pos.vx;
+	const float vy = _local_pos.vy;
+	const float vz = _local_pos.vz;
+
+	// heading speed
+	float vh = sqrtf(vx*vx + vy*vy + vz*vz);
+
+	// global pos do not work... Need to FIX?
+	// Not if we use home pos as target in QGC.
+	if (_global_pos_sub.update(&gpos)) {
+		dist_z = gpos.alt - pos_sp_curr.alt;
+	}
+
+	float dist_xy = (target_position_local - local_position).norm();  // meters
+	float dist_target = sqrtf(dist_xy*dist_xy + dist_z*dist_z);
+	// time to go
+	float t_to_go =  dist_target / vh;
+
+	float N = _param_propnav_gain.get();
+
+	// Lambda
+	const float lambda = atan2f(dist_z, dist_xy);
+
+
+
+	// give lambda_l an initial value to avoid bid step in pitch setpoint
+	if (_lambda_l > 0.1f)
+	{
+		_lambda_l = lambda;
+	}
+
+	// PROPNAV LAW
+	float pitch_body = N * (lambda - _lambda_l) * 1/control_interval + _pitch;
+
+	//PX4_INFO("ptich_body=%.4f, lambda=%.4f, lambda_l=%.4f, actual_pitch=%.4f",
+	//	(double)pitch_body,(double)lambda,(double)_lambda_l,(double)_pitch);
+
+	// Update lamba_k-1
+	_lambda_l = lambda;
+
+	// if pody_pitch value is bad, use previous pitch ref.
+
+	if (fabsf(pitch_body) > math::radians(180.0f)) {
+    		pitch_body = _gamma_1;
+	}
+
+	// Force negative pitch
+	if (pitch_body > 0.01f)
+	{
+		pitch_body = -pitch_body;
+	}
+
+	// limit manuvers close to impact by using fixed pitch setpoint
+	if (t_to_go < 1.5f)
+	{
+		pitch_body = _gamma_hold;
+	} else
+	{
+		_gamma_hold = pitch_body;
+	}
+
+	//PX4_INFO("timetogo=%.2f",(double)t_to_go);
+
+
+	// update old pitch ref
+	_gamma_1 = pitch_body;
+
+		//-----------------------------------------------------------------------------
+
+	float roll_body = _roll;
+
+
+	// turning of NPFG controller close to impact to limit manuvers.
+	if (dist_xy > 30.0f)
+	{
+		//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
+		// NPFG setup for lateral guidance to target
+		_npfg.setAirspeedNom(target_airspeed * _eas2tas);
+		_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
+
+		// more accurate impact using navigateWaypoint instead of navigateLine
+		navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
+
+		// Get NPFG calculated roll setpoint for lateral guidance
+		roll_body = getCorrectedNpfgRollSetpoint();
+		roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
+
+
+	}
+
 
 	// Maintain current yaw for stability
 	const float yaw_body = _yaw;
+
+	PX4_INFO("dist_xy=%.2f, dist_z=%.2f, Pitch_setpoint=%.2f, actual_pitch=%.2f",
+		 (double)dist_xy,(double)dist_z, (double)math::degrees(pitch_body), (double)math::degrees(_pitch));
 
 	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));

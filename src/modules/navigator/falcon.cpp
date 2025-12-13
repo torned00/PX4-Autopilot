@@ -165,7 +165,7 @@ void FALCON::_updateFalconState()
 	switch (_falcon_state) {
 
 	case FALCONState::GLIDE:
-		new_state = FALCONState::PITCH;
+		new_state = FALCONState::DIVE;
 		break;
 
 	case FALCONState::PITCH:
@@ -173,7 +173,7 @@ void FALCON::_updateFalconState()
 		break;
 
 	case FALCONState::DIVE:
-		new_state = FALCONState::IMPACT;
+		new_state = FALCONState::DIVE;
 		break;
 
 	case FALCONState::IMPACT:

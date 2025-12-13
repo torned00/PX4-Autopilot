@@ -205,3 +205,25 @@ PARAM_DEFINE_FLOAT(NAV_MIN_LTR_ALT, -1.f);
  * @group Mission
  */
 PARAM_DEFINE_FLOAT(NAV_MIN_GND_DIST, -1.f);
+
+ /**
+ * Distance from target switch to Falcon modes
+ *
+ * @unit m
+ * @min 0
+ * @decimal 0
+ * @increment 1
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(FALCON_INIT, 200.0f);
+
+ /**
+ * Ground angle switch to Dive
+ *
+ * @unit m
+ * @min 0
+ * @decimal 1
+ * @increment 0.5
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(FALCON_DIVE, 65.0f);

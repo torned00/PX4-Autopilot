@@ -238,6 +238,11 @@ private:
 	vehicle_local_position_s _local_pos{};
 	vehicle_status_s _vehicle_status{};
 
+	// used in PROPNAV
+	float _lambda_l{1.0f};
+	float _gamma_1{1.0f};
+	float _gamma_hold{1.0f};
+
 	Vector2f _lpos_where_backtrans_started;
 
 	bool _position_setpoint_previous_valid{false};
@@ -1090,6 +1095,8 @@ private:
 
 		(ParamInt<px4::params::FW_GPSF_LT>) _param_nav_gpsf_lt,
 		(ParamFloat<px4::params::FW_GPSF_R>) _param_nav_gpsf_r,
+
+		(ParamFloat<px4::params::PROPNAV_N>) _param_propnav_gain,
 
 		// external parameters
 		(ParamBool<px4::params::FW_USE_AIRSPD>) _param_fw_use_airspd,
