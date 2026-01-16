@@ -65,3 +65,11 @@ The PX4 Autopilot project including all of its trademarks is hosted under [Drone
 ## Updating the Gazebo Submodule (The Falcon Project)
 
 To use worlds and models that has been created or updated and added to the [PX4-Gazebo-models repo](https://github.com/ingeborgaarnes/PX4-gazebo-models/tree/main), you need update the Gazebo Simulation Submodule. This is simply done by running the `update_gz_submodule.sh` script that is added to this repo.
+
+## Updated FALCON flight mode for precision guided airdrops (The Falcon Project)
+
+The FALCON flight mode is designed for precision-guided airdrops aimed at suppressing wildfires. It consists of three phases—Glide, Dive, and Impact—that allow a thrustless glider to manoeuvre accurately toward a designated ground target. During the Glide phase, TECS maintains the optimal airspeed by modulating pitch to balance potential and kinetic energy, while the NPFG controller provides lateral path following toward the target. Once the aircraft transitions into the Dive phase, a PROPNAV controller takes over control for longitudinal guidance, commanding the required pitch response to ensure a direct and accurate impact on the target.  
+
+Initiate FALCON flight mode: commander mode auto:falcon
+Change state transition criteria for transiton form Glide to Dive, use: param show FALCON_DIVE, param set FALCON_DIVE *value*
+Change PROPNAV gain: param show PROPNAV_N, param set PROPNAV_N *value*
