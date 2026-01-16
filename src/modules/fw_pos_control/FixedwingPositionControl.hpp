@@ -98,6 +98,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/wind.h>
 #include <uORB/topics/orbit_status.h>
+#include <uORB/topics/impact_imminent.h>
 #include <uORB/uORB.h>
 
 #ifdef CONFIG_FIGURE_OF_EIGHT
@@ -230,6 +231,8 @@ private:
 	uORB::Publication<normalized_unsigned_setpoint_s> _flaps_setpoint_pub{ORB_ID(flaps_setpoint)};
 	uORB::Publication<normalized_unsigned_setpoint_s> _spoilers_setpoint_pub{ORB_ID(spoilers_setpoint)};
 	uORB::PublicationData<flight_phase_estimation_s> _flight_phase_estimation_pub{ORB_ID(flight_phase_estimation)};
+	uORB::Publication<impact_imminent_s> _impact_imminent_pub{ORB_ID(impact_imminent)};
+
 
 	manual_control_setpoint_s _manual_control_setpoint{};
 	position_setpoint_triplet_s _pos_sp_triplet{};
@@ -1097,6 +1100,8 @@ private:
 		(ParamFloat<px4::params::FW_GPSF_R>) _param_nav_gpsf_r,
 
 		(ParamFloat<px4::params::PROPNAV_N>) _param_propnav_gain,
+		(ParamFloat<px4::params::PROPNAV_TTG>) _param_propnav_ttg,
+
 
 		// external parameters
 		(ParamBool<px4::params::FW_USE_AIRSPD>) _param_fw_use_airspd,

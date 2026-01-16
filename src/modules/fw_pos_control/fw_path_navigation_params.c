@@ -963,3 +963,14 @@ PARAM_DEFINE_FLOAT(FW_SPOILERS_LND, 0.f);
  * @group FW Attitude Control
  */
 PARAM_DEFINE_FLOAT(PROPNAV_N, 3.f);
+
+/**
+ * PROPNAV time to impact cond.
+ *
+ * @min 1.0
+ * @max 5.0
+ * @decimal 1
+ * @increment 0.1
+ * @group FW Attitude Control
+ */
+PARAM_DEFINE_FLOAT(PROPNAV_TTG, 1.5f);

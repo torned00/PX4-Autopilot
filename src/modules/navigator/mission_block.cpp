@@ -161,14 +161,23 @@ MissionBlock::is_mission_item_reached_or_completed()
 
 	case NAV_CMD_DIVE:
 		if (_mission_item.nav_cmd == NAV_CMD_DIVE) {
-			float dist_xy = -1.0f;
+			/*float dist_xy = -1.0f;
 			float new_radius = 2.0f;
 			dist_xy = get_distance_to_next_waypoint(_mission_item.lat, _mission_item.lon,
 					_navigator->get_global_position()->lat,
 					_navigator->get_global_position()->lon);
 
 			PX4_INFO("DIVE: dist_xy=%.2f, impact_radius=%.2f", (double)dist_xy, (double)new_radius);
-			return dist_xy <= new_radius;
+			return dist_xy <= new_radius;*/
+
+			 _impact_imminent_sub.update(&_impact_imminent);
+
+			 if (_impact_imminent.impact_imminent) {
+        		PX4_INFO("DIVE: impact imminent -> completing DIVE");
+        			return true;  // this will advance to the next mission item
+   			 } else {
+				return false;
+			 }
 		}
 		break;
 	case NAV_CMD_IMPACT:

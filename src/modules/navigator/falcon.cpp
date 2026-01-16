@@ -173,7 +173,7 @@ void FALCON::_updateFalconState()
 		break;
 
 	case FALCONState::DIVE:
-		new_state = FALCONState::DIVE;
+		new_state = FALCONState::IMPACT;
 		break;
 
 	case FALCONState::IMPACT:

@@ -2422,7 +2422,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 
 
-	// give lambda_l an initial value to avoid bid step in pitch setpoint
+	// give lambda_l an initial value to avoid big step in pitch setpoint
 	if (_lambda_l > 0.1f)
 	{
 		_lambda_l = lambda;
@@ -2448,8 +2448,19 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	{
 		pitch_body = -pitch_body;
 	}
+	float ttg = _param_propnav_ttg.get();
 
 	// limit manuvers close to impact by using fixed pitch setpoint
+	// Advances to Impact state when impact_now = true
+	const bool impact_now = (t_to_go < ttg);
+
+	if (impact_now) {
+    		pitch_body = _gamma_hold;
+	} else {
+   		 _gamma_hold = pitch_body;
+	}
+
+	/*
 	if (t_to_go < 1.5f)
 	{
 		pitch_body = _gamma_hold;
@@ -2459,7 +2470,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	}
 
 	//PX4_INFO("timetogo=%.2f",(double)t_to_go);
-
+	*/
 
 	// update old pitch ref
 	_gamma_1 = pitch_body;
@@ -2468,7 +2479,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	float roll_body = _roll;
 
-
+	/*
 	// turning of NPFG controller close to impact to limit manuvers.
 	if (dist_xy > 30.0f)
 	{
@@ -2485,7 +2496,19 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 		roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
 
 
-	}
+	} */
+
+	//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
+	// NPFG setup for lateral guidance to target
+	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
+	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
+
+	// more accurate impact using navigateWaypoint instead of navigateLine
+	navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
+
+	// Get NPFG calculated roll setpoint for lateral guidance
+	roll_body = getCorrectedNpfgRollSetpoint();
+	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
 
 
 	// Maintain current yaw for stability
@@ -2503,6 +2526,9 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	// Publish position setpoint for logging purposes
 	publishLocalPositionSetpoint(pos_sp_curr);
+	impact_imminent_s msg{};
+	msg.impact_imminent = impact_now;
+	_impact_imminent_pub.publish(msg);
 
 }
 
@@ -2510,6 +2536,7 @@ void
 FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
+	/*
 	// Set target airspeed explicitly (use landing or descent airspeed param)
 	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
 					_param_fw_lnd_airspd.get() :
@@ -2538,6 +2565,35 @@ FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const floa
 	const float yaw_body = _yaw;
 
 	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
+	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
+	attitude_setpoint.copyTo(_att_sp.q_d);
+
+	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
+
+
+	// Publish position setpoint for logging purposes
+	publishLocalPositionSetpoint(pos_sp_curr); */
+
+	// Set target airspeed explicitly (use landing or descent airspeed param)
+
+	const Vector2f local_position{_local_pos.x, _local_pos.y};
+	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+
+	float local_z = _local_pos.z;
+	float dist_z = local_z;
+
+	float dist_xy = (target_position_local - local_position).norm();  // meters
+
+	float roll_body = _roll;
+
+	float pitch_body = _gamma_hold;
+
+	const float yaw_body = _yaw;
+
+	PX4_INFO("dist_xy=%.2f, dist_z=%.2f, Pitch_setpoint=%.2f, actual_pitch=%.2f",
+		 (double)dist_xy,(double)dist_z, (double)math::degrees(pitch_body), (double)math::degrees(_pitch));
+
+	// Explicitly construct the attitude setpoint (current roll, fixed dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 

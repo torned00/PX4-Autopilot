@@ -54,6 +54,7 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/impact_imminent.h>
 
 // cosine of maximal course error to exit loiter if exit course is enforced (fixed-wing only)
 static constexpr float kCosineExitCourseThreshold = 0.99619f; // cos(5°)
@@ -251,4 +252,8 @@ private:
 	void updateMaxHaglFailsafe();
 
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+
+	// FALCON / impact trigger
+	uORB::Subscription _impact_imminent_sub{ORB_ID(impact_imminent)};
+	impact_imminent_s _impact_imminent{};
 };
