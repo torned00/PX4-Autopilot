@@ -261,7 +261,9 @@ public:
 	bool get_mission_start_land_available() { return _mission.get_land_start_available(); }
 
 	// FALCON
-	bool in_falcon_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON; }
+	bool in_falcon_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON
+		|| (_vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER);}
+
 
 	// RTL
 	bool in_rtl_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL; }

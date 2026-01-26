@@ -775,13 +775,14 @@ void Navigator::run()
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
 			_pos_sp_triplet_published_invalid_once = false;
-			navigation_mode_new = &_loiter;
+			navigation_mode_new = &_falcon; // &_loiter
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON:
 			_pos_sp_triplet_published_invalid_once = false;
 			navigation_mode_new = &_falcon;
 			break;
+
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
 
