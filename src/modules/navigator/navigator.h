@@ -262,7 +262,7 @@ public:
 
 	// FALCON
 	bool in_falcon_state() const { return _vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_FALCON
-		|| (_vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER);}
+		|| (_vstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND);}
 
 
 	// RTL
