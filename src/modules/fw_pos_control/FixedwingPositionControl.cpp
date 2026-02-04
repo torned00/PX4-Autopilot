@@ -2394,8 +2394,12 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	vehicle_global_position_s gpos;
 
+	float altitude_offset = _param_propnav_offset.get();
+
 	float local_z = _local_pos.z;
-	float dist_z = local_z;
+	// altitude offset is default set to 50m above target pos. Used for safe testing.
+	// use param set PROPNAV_OFFSET to alter altitude offset in QGC
+	float dist_z = local_z + altitude_offset;
 
 	const float vx = _local_pos.vx;
 	const float vy = _local_pos.vy;
@@ -2452,7 +2456,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	// limit manuvers close to impact by using fixed pitch setpoint
 	// Advances to Impact state when impact_now = true
-	const bool impact_now = (t_to_go < ttg);
+	bool impact_now = (t_to_go < ttg);
 
 	if (impact_now) {
     		pitch_body = _gamma_hold;
@@ -2460,17 +2464,16 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
    		 _gamma_hold = pitch_body;
 	}
 
-	/*
-	if (t_to_go < 1.5f)
+	// force switch to impact if drone is lower than offset height when switching to Dive
+	if (altitude_offset > 0.01f)
 	{
-		pitch_body = _gamma_hold;
-	} else
-	{
-		_gamma_hold = pitch_body;
+		if (dist_z > 0.01f)
+		{
+			impact_now = true;
+		}
+
 	}
 
-	//PX4_INFO("timetogo=%.2f",(double)t_to_go);
-	*/
 
 	// update old pitch ref
 	_gamma_1 = pitch_body;
@@ -2479,24 +2482,6 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	float roll_body = _roll;
 
-	/*
-	// turning of NPFG controller close to impact to limit manuvers.
-	if (dist_xy > 30.0f)
-	{
-		//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
-		// NPFG setup for lateral guidance to target
-		_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-		_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
-
-		// more accurate impact using navigateWaypoint instead of navigateLine
-		navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
-
-		// Get NPFG calculated roll setpoint for lateral guidance
-		roll_body = getCorrectedNpfgRollSetpoint();
-		roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
-
-
-	} */
 
 	//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
 	// NPFG setup for lateral guidance to target
@@ -2536,51 +2521,15 @@ void
 FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const float control_interval, const Vector2f &ground_speed,
 					   const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
-	/*
-	// Set target airspeed explicitly (use landing or descent airspeed param)
-	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
-					_param_fw_lnd_airspd.get() :
-					_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
 
-	// Retrieve current and target positions
+
 	const Vector2f local_position{_local_pos.x, _local_pos.y};
 	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
 
-	// NPFG setup for lateral guidance to target
-	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
-
-	// Perform lateral guidance to ensure accurate target tracking
-	navigateLine(local_position, target_position_local, local_position, ground_speed, _wind_vel);
-
-	// Get NPFG calculated roll setpoint for lateral guidance
-	float roll_body = getCorrectedNpfgRollSetpoint();
-	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
-
-	// Set and hold aggressive pitch angle for steep descent
-	const float fixed_dive_angle_deg = -75.0f;
-	const float pitch_body = math::radians(fixed_dive_angle_deg);
-
-	// Maintain current yaw for stability
-	const float yaw_body = _yaw;
-
-	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
-	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
-	attitude_setpoint.copyTo(_att_sp.q_d);
-
-	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
-
-
-	// Publish position setpoint for logging purposes
-	publishLocalPositionSetpoint(pos_sp_curr); */
-
-	// Set target airspeed explicitly (use landing or descent airspeed param)
-
-	const Vector2f local_position{_local_pos.x, _local_pos.y};
-	const Vector2f target_position_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
+	float altitude_offset = _param_propnav_offset.get();
 
 	float local_z = _local_pos.z;
-	float dist_z = local_z;
+	float dist_z = local_z + altitude_offset;
 
 	float dist_xy = (target_position_local - local_position).norm();  // meters
 
@@ -2589,6 +2538,15 @@ FixedwingPositionControl::control_auto_impact(const hrt_abstime &now, const floa
 	float pitch_body = _gamma_hold;
 
 	const float yaw_body = _yaw;
+
+	// When offset impact point is passed, flare out (pitch = 0)
+	if (altitude_offset > 0.1f)
+	{
+		if (dist_z > 0.01f)
+		{
+			pitch_body = 0.0f;
+		}
+	}
 
 	PX4_INFO("dist_xy=%.2f, dist_z=%.2f, Pitch_setpoint=%.2f, actual_pitch=%.2f",
 		 (double)dist_xy,(double)dist_z, (double)math::degrees(pitch_body), (double)math::degrees(_pitch));

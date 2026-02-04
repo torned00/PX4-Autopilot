@@ -974,3 +974,14 @@ PARAM_DEFINE_FLOAT(PROPNAV_N, 3.f);
  * @group FW Attitude Control
  */
 PARAM_DEFINE_FLOAT(PROPNAV_TTG, 1.5f);
+
+/**
+ * PROPNAV Altitude above target offset.
+ *
+ * @min 0.0
+ * @max 50.0
+ * @decimal 1
+ * @increment 0.1
+ * @group FW Attitude Control
+ */
+PARAM_DEFINE_FLOAT(PROPNAV_OFFSET, 25.0f);

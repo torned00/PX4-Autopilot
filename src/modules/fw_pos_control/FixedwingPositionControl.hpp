@@ -1101,6 +1101,7 @@ private:
 
 		(ParamFloat<px4::params::PROPNAV_N>) _param_propnav_gain,
 		(ParamFloat<px4::params::PROPNAV_TTG>) _param_propnav_ttg,
+		(ParamFloat<px4::params::PROPNAV_OFFSET>) _param_propnav_offset,
 
 
 		// external parameters
