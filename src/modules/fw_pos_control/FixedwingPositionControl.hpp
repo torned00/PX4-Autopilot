@@ -245,6 +245,8 @@ private:
 	float _lambda_l{1.0f};
 	float _gamma_1{1.0f};
 	float _gamma_hold{1.0f};
+	float _lambda_lat_prev{1.0f};
+	bool _lambda_lat_initialized{false};
 
 	Vector2f _lpos_where_backtrans_started;
 

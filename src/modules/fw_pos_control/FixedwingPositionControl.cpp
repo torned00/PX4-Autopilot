@@ -2380,9 +2380,9 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 {
 
 	// Set target airspeed explicitly (use landing or descent airspeed param)
-	const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
-					_param_fw_lnd_airspd.get() :
-					_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
+	//const float target_airspeed = (_param_fw_lnd_airspd.get() > FLT_EPSILON) ?
+	//				_param_fw_lnd_airspd.get() :
+	//				_performance_model.getMinimumCalibratedAirspeed(getLoadFactor());
 
 
 	// Retrieve current and target positions
@@ -2483,6 +2483,8 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	float roll_body = _roll;
 
 
+	/*
+
 	//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
 	// NPFG setup for lateral guidance to target
 	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
@@ -2493,7 +2495,62 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	// Get NPFG calculated roll setpoint for lateral guidance
 	roll_body = getCorrectedNpfgRollSetpoint();
-	roll_body = math::constrain(roll_body, -radians(30.0f), radians(30.0f)); // Limit roll to avoid aggressive banking
+	roll_body = math::constrain(roll_body, -radians(60.0f), radians(60.0f)); // Limit roll to avoid aggressive banking
+
+	*/
+
+
+
+	// LOS controller for lateral control ------------------------------------------
+	/*
+
+	const Vector2f to_target = target_position_local - local_position;
+
+	const float desired_course = atan2f(to_target(1), to_target(0));
+	const float course_error = matrix::wrap_pi(desired_course - atan2f(ground_speed(1), ground_speed(0)));
+
+	const float N_lat = 3.0f; // tune
+	roll_body = atanf(N_lat * course_error);
+	*/
+	// ---------------------------------------------------------------------------------
+
+	// PORPNAV for lateral control -----------------------------------------------------
+
+	const Vector2f to_target = target_position_local - local_position;
+
+	// Bearing / LOS angle to target in horizontal plane
+	const float lambda_lat = atan2f(to_target(1), to_target(0));
+
+	// Initialize previous LOS angle once to avoid a huge first-step command
+	if (!_lambda_lat_initialized) {
+		_lambda_lat_prev = lambda_lat;
+		_lambda_lat_initialized = true;
+	}
+
+	// LOS rate, wrapped correctly across ±pi
+	const float lambda_lat_dot =
+		matrix::wrap_pi(lambda_lat - _lambda_lat_prev) / control_interval;
+
+	// Ground speed magnitude
+	const float Vg = math::max(ground_speed.norm(), 1.0f);
+
+	// Lateral proportional navigation acceleration command
+	const float N_lat = 3.0f;   // tune: try 2–5
+	const float a_lat_cmd = N_lat * Vg * lambda_lat_dot;
+
+	// Convert lateral acceleration command to roll command
+	roll_body = atanf(a_lat_cmd / CONSTANTS_ONE_G);
+
+	// Limit roll to something realistic
+	roll_body = math::constrain(roll_body, -radians(60.0f), radians(60.0f));
+
+	// Save previous LOS angle
+	_lambda_lat_prev = lambda_lat;
+
+	// --------------------------------------------------------------------------------
+
+
+	roll_body = math::constrain(roll_body, -radians(60.0f), radians(60.0f));
 
 
 	// Maintain current yaw for stability
@@ -2501,8 +2558,9 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	PX4_INFO("dist_xy=%.2f, dist_z=%.2f, Pitch_setpoint=%.2f, actual_pitch=%.2f",
 		 (double)dist_xy,(double)dist_z, (double)math::degrees(pitch_body), (double)math::degrees(_pitch));
+	PX4_INFO( "Roll_setpoint=%.2f, actual_roll=%.2f", (double)math::degrees(roll_body), (double)math::degrees(_roll));
 
-	// Explicitly construct the attitude setpoint (NPFG roll, fixed dive pitch, current yaw)
+	// Explicitly construct the attitude setpoint (NPFG roll, dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
 	attitude_setpoint.copyTo(_att_sp.q_d);
 
