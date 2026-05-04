@@ -2392,7 +2392,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	// -------------------- PROPNAV -----------------------------------------------
 
-	vehicle_global_position_s gpos;
+	//vehicle_global_position_s gpos;
 
 	float altitude_offset = _param_propnav_offset.get();
 
@@ -2410,9 +2410,10 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	// global pos do not work... Need to FIX?
 	// Not if we use home pos as target in QGC.
+	/*
 	if (_global_pos_sub.update(&gpos)) {
 		dist_z = gpos.alt - pos_sp_curr.alt;
-	}
+	}*/
 
 	float dist_xy = (target_position_local - local_position).norm();  // meters
 	float dist_target = sqrtf(dist_xy*dist_xy + dist_z*dist_z);
@@ -2457,6 +2458,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	// limit manuvers close to impact by using fixed pitch setpoint
 	// Advances to Impact state when impact_now = true
 	bool impact_now = (t_to_go < ttg);
+	PX4_INFO("t_to_go=%.2f" , (double)t_to_go );
 
 	if (impact_now) {
     		pitch_body = _gamma_hold;
@@ -2465,6 +2467,8 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	}
 
 	// force switch to impact if drone is lower than offset height when switching to Dive
+	PX4_INFO("altitude_offset=%.2f, dist_z=%.2f",(double)altitude_offset, (double)dist_z);
+
 	if (altitude_offset > 0.01f)
 	{
 		if (dist_z > 0.01f)
