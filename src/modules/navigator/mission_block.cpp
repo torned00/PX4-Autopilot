@@ -101,7 +101,7 @@ MissionBlock::is_mission_item_reached_or_completed()
 	case NAV_CMD_LAND: /* fall through */
 	case NAV_CMD_GLIDE:
 		if (_mission_item.nav_cmd == NAV_CMD_GLIDE) {
-
+			/*
 			float dist_xy = -1.0f;
 			float dist_z = -1.0f;
 			float state_cond_angle_rad = -1.0f;
@@ -115,18 +115,27 @@ MissionBlock::is_mission_item_reached_or_completed()
 					_navigator->get_global_position()->lon);
 
 			dist_z = _navigator->get_global_position()->alt;
-
+			dist_z = dist_z - 21.0f - 30.0f;
 			// calculate ground angle
 			state_cond_angle_rad = -atanf(dist_z / dist_xy);
 			float state_cond_deg = math::degrees(state_cond_angle_rad);
-
+			PX4_INFO("state_cond=%2f, ground_angle=%2f, dist_z=%2f", (double)state_cond_deg, (double)ground_angle_cond, (double)dist_z);
 			// when ground angle is greater than ground_angle_cond -> advance to DIVE
 			if(state_cond_deg < -ground_angle_cond){
 				return true;
 			}
 			else {
 				return false;
-			}
+			}*/
+
+			 _dive_imminent_sub.update(&_dive_imminent);
+
+			 if (_dive_imminent.dive_imminent) {
+        			PX4_INFO("DIVE: impact imminent -> completing DIVE");
+        			return true;  // this will advance to the next mission item
+   			 } else {
+				return false;
+			 }
 		}
 		break;
 	case NAV_CMD_PITCH:

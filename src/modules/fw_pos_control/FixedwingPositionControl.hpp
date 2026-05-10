@@ -99,6 +99,7 @@
 #include <uORB/topics/wind.h>
 #include <uORB/topics/orbit_status.h>
 #include <uORB/topics/impact_imminent.h>
+#include <uORB/topics/dive_imminent.h>
 #include <uORB/uORB.h>
 
 #ifdef CONFIG_FIGURE_OF_EIGHT
@@ -232,6 +233,7 @@ private:
 	uORB::Publication<normalized_unsigned_setpoint_s> _spoilers_setpoint_pub{ORB_ID(spoilers_setpoint)};
 	uORB::PublicationData<flight_phase_estimation_s> _flight_phase_estimation_pub{ORB_ID(flight_phase_estimation)};
 	uORB::Publication<impact_imminent_s> _impact_imminent_pub{ORB_ID(impact_imminent)};
+	uORB::Publication<dive_imminent_s> _dive_imminent_pub{ORB_ID(dive_imminent)};
 
 
 	manual_control_setpoint_s _manual_control_setpoint{};
@@ -1107,6 +1109,7 @@ private:
 
 
 		// external parameters
+		(ParamFloat<px4::params::FALCON_DIVE>) _param_falcon_dive,
 		(ParamBool<px4::params::FW_USE_AIRSPD>) _param_fw_use_airspd,
 
 		(ParamFloat<px4::params::FW_PSP_OFF>) _param_fw_psp_off,

@@ -2273,6 +2273,7 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 	Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
 	Vector2f curr_wp_local = _global_local_proj_ref.project(pos_sp_curr.lat, pos_sp_curr.lon);
 
+
 	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
 
@@ -2315,6 +2316,17 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 
 	_att_sp.thrust_body[0] = 0.0f; // zero forward thrust (X axis)
 
+	float altitude_offset = _param_propnav_offset.get();
+	float dist_xy = ( curr_wp_local -  curr_pos_local).norm();
+	float local_z = _local_pos.z + altitude_offset;
+	float lambda = atan2f(local_z, dist_xy);
+	lambda = math::degrees(lambda);
+	float falcon_dive_cond =_param_falcon_dive.get();
+	bool dive_imminent = (lambda < -falcon_dive_cond);
+
+
+	PX4_INFO("dive_cond=%.2f, dive_imminent=%.2f, lambda=%.2f, distxy=%.2f, distz=%.2f",
+		 (double)falcon_dive_cond,  (double)dive_imminent,  (double)lambda,  (double)dist_xy,  (double)local_z);
 
 	const float pitch_body = get_tecs_pitch();
 	const Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
@@ -2322,6 +2334,9 @@ FixedwingPositionControl::control_auto_glide(const float control_interval, const
 
 	// Publish position setpoint for logging purposes
 	publishLocalPositionSetpoint(pos_sp_curr);
+	dive_imminent_s msg{};
+	msg.dive_imminent = dive_imminent;
+	_dive_imminent_pub.publish(msg);
 }
 
 void
@@ -2458,7 +2473,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	// limit manuvers close to impact by using fixed pitch setpoint
 	// Advances to Impact state when impact_now = true
 	bool impact_now = (t_to_go < ttg);
-	PX4_INFO("t_to_go=%.2f" , (double)t_to_go );
+	//PX4_INFO("t_to_go=%.2f" , (double)t_to_go );
 
 	if (impact_now) {
     		pitch_body = _gamma_hold;
@@ -2467,7 +2482,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 	}
 
 	// force switch to impact if drone is lower than offset height when switching to Dive
-	PX4_INFO("altitude_offset=%.2f, dist_z=%.2f",(double)altitude_offset, (double)dist_z);
+	//PX4_INFO("altitude_offset=%.2f, dist_z=%.2f",(double)altitude_offset, (double)dist_z);
 
 	if (altitude_offset > 0.01f)
 	{
@@ -2486,37 +2501,6 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	float roll_body = _roll;
 
-
-	/*
-
-	//PX4_INFO("NPFG CONTROL pitch_ref=%.2f", (double)dive_angle_rad);
-	// NPFG setup for lateral guidance to target
-	_npfg.setAirspeedNom(target_airspeed * _eas2tas);
-	_npfg.setAirspeedMax(_performance_model.getMaximumCalibratedAirspeed() * _eas2tas);
-
-	// more accurate impact using navigateWaypoint instead of navigateLine
-	navigateWaypoint(target_position_local, local_position, ground_speed, _wind_vel);
-
-	// Get NPFG calculated roll setpoint for lateral guidance
-	roll_body = getCorrectedNpfgRollSetpoint();
-	roll_body = math::constrain(roll_body, -radians(60.0f), radians(60.0f)); // Limit roll to avoid aggressive banking
-
-	*/
-
-
-
-	// LOS controller for lateral control ------------------------------------------
-	/*
-
-	const Vector2f to_target = target_position_local - local_position;
-
-	const float desired_course = atan2f(to_target(1), to_target(0));
-	const float course_error = matrix::wrap_pi(desired_course - atan2f(ground_speed(1), ground_speed(0)));
-
-	const float N_lat = 3.0f; // tune
-	roll_body = atanf(N_lat * course_error);
-	*/
-	// ---------------------------------------------------------------------------------
 
 	// PORPNAV for lateral control -----------------------------------------------------
 
@@ -2562,7 +2546,7 @@ FixedwingPositionControl::control_auto_dive(const hrt_abstime &now, const float 
 
 	PX4_INFO("dist_xy=%.2f, dist_z=%.2f, Pitch_setpoint=%.2f, actual_pitch=%.2f",
 		 (double)dist_xy,(double)dist_z, (double)math::degrees(pitch_body), (double)math::degrees(_pitch));
-	PX4_INFO( "Roll_setpoint=%.2f, actual_roll=%.2f", (double)math::degrees(roll_body), (double)math::degrees(_roll));
+	//PX4_INFO( "Roll_setpoint=%.2f, actual_roll=%.2f", (double)math::degrees(roll_body), (double)math::degrees(_roll));
 
 	// Explicitly construct the attitude setpoint (NPFG roll, dive pitch, current yaw)
 	Quatf attitude_setpoint(Eulerf(roll_body, pitch_body, yaw_body));
