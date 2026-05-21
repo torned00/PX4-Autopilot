@@ -66,10 +66,64 @@ The PX4 Autopilot project including all of its trademarks is hosted under [Drone
 
 To use worlds and models that has been created or updated and added to the [PX4-Gazebo-models repo](https://github.com/ingeborgaarnes/PX4-gazebo-models/tree/main), you need update the Gazebo Simulation Submodule. This is simply done by running the `update_gz_submodule.sh` script that is added to this repo.
 
-## Updated FALCON flight mode for precision guided airdrops (The Falcon Project)
 
-The FALCON flight mode is designed for precision-guided airdrops aimed at suppressing wildfires. It consists of three phases—Glide, Dive, and Impact—that allow a thrustless glider to manoeuvre accurately toward a designated ground target. During the Glide phase, TECS maintains the optimal airspeed by modulating pitch to balance potential and kinetic energy, while the NPFG controller provides lateral path following toward the target. Once the aircraft transitions into the Dive phase, a PROPNAV controller takes over control for longitudinal guidance, commanding the required pitch response to ensure a direct and accurate impact on the target.  
 
-Initiate FALCON flight mode: commander mode auto:falcon
-Change state transition criteria for transiton form Glide to Dive, use: param show FALCON_DIVE, param set FALCON_DIVE *value*
-Change PROPNAV gain: param show PROPNAV_N, param set PROPNAV_N *value*
+# FALCON Flight Mode
+
+FALCON is a custom PX4 flight mode developed for precision-guided airdrops aimed at early-stage wildfire suppression. The flight mode is designed for fixed-wing gliders released from a carrier UAV and enables autonomous guidance toward a designated ground target without propulsion.
+
+The guidance logic is divided into three phases: **Glide**, **Dive**, and **Impact**, allowing the aircraft to transition from efficient long-range flight to aggressive terminal guidance.
+
+## Glide Phase
+
+During the Glide phase, the aircraft flies toward the target using conventional fixed-wing guidance. Total Energy Control System (TECS) is used to regulate the aircraft energy state and maintain the desired airspeed by balancing kinetic and potential energy through pitch control. Lateral navigation is initially handled by the NPFG (Nonlinear Path Following Guidance) controller, which guides the aircraft toward the target while maintaining stable and energy-efficient flight.
+
+The Glide phase is designed to maximize range and maintain controllability while gradually positioning the aircraft for terminal descent.
+
+## Dive Phase
+
+Once the aircraft reaches a predefined distance or geometry relative to the target, FALCON transitions into the Dive phase. In this phase, the guidance strategy changes from path following to direct target interception.
+
+A proportional navigation (PROPNAV / PN) controller is used to generate aggressive terminal guidance commands based on the line-of-sight (LOS) dynamics between the aircraft and the target. The controller continuously adjusts the aircraft trajectory to minimize miss distance and steer the aircraft onto a collision course.
+
+ HOME POSITION IS USED AS THE TARGET LOCATION!
+
+The Dive phase increases descent angle and targeting precision while reducing the effect of accumulated navigation errors from the glide segment.
+
+## Impact Phase
+
+As the aircraft approaches the target and the estimated time-to-go becomes sufficiently small, FALCON transitions into the Impact phase. During this phase, the commanded pitch and roll is held approximately constant to stabilize the final descent trajectory and reduce excessive manoeuvring close to impact.
+
+The objective of the Impact phase is to maintain a predictable terminal trajectory and ensure accurate payload delivery onto the target location.
+
+## Motivation
+
+The flight mode was developed as part of a master thesis investigating low-cost autonomous wildfire suppression systems using guided airdrops. The primary goal is to achieve meter-level targeting accuracy while operating under realistic environmental disturbances such as wind and gusts.
+
+Unlike traditional waypoint navigation, FALCON is specifically designed for terminal interception problems, where minimizing miss distance is more important than smooth path following.
+
+## Current Status
+
+The system has been validated through:
+- Software-in-the-loop (SITL) simulation, achieved sub-meter level accuracy.
+- Real-world flight testing
+- Comparison between simulated and measured trajectories
+
+The current implementation demonstrates successful autonomous transitions between all guidance phases and significantly improved terminal accuracy using PN-based lateral guidance compared to the original NPFG-based implementation.
+
+Future work includes:
+- Improved state estimation and wind compensation
+- Structural refinement of the prototype airframe
+- Higher-fidelity aerodynamic modelling
+- Full payload integration and release testing
+
+## Params
+
+Initiate FALCON flight mode in terminal: commander mode auto:falcon
+Initiate FALCON flight mode through RC control or QGC by switching to "Precision Landing" mode.
+
+FALCON params:
+FALCON_DIVE, transition criteria between Glide and Dive.
+PROPNAV_N, Proportional navigation controller gain.
+PROPNAV_TTG, used to transition from Dive over to Impact.
+PROPNAV_OFFSET, moves the target "offset altitude" above ground, used for practical testing of the flight mode.
